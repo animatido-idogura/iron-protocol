@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IRON PROTOCOL ⚡</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff0055">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="IRON">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #ff0055;
+    --cyan: #00ffcc;
+    --dark: #080808;
+    --panel: #0d0d0d;
+    --border: #1a1a1a;
+    --text: #cccccc;
+    --dim: #444;
+    --glow-red: 0 0 20px rgba(255,0,85,0.5);
+    --glow-cyan: 0 0 20px rgba(0,255,204,0.5);
+  }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { background:var(--dark);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden; }
+  body::before { content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 4px);pointer-events:none;z-index:9999; }
+  body::after { content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,0,85,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,0,85,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0; }
+  .app { position:relative;z-index:1;max-width:520px;margin:0 auto;padding:16px;padding-bottom:220px; }
+  .header { text-align:center;padding:24px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px; }
+  .logo { font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:var(--red);text-shadow:var(--glow-red);letter-spacing:0.15em;animation:flicker 6s infinite; }
+  .logo span { color:var(--cyan);text-shadow:var(--glow-cyan); }
+  .tagline { font-size:10px;color:var(--dim);letter-spacing:0.4em;margin-top:4px; }
+  @keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.6}97%{opacity:1}98%{opacity:.4} }
+
+  /* PANELS */
+  .panel { background:var(--panel);border:1px solid var(--red);padding:16px;margin-bottom:16px;position:relative; }
+  .panel-label { position:absolute;top:-9px;right:12px;background:var(--dark);color:var(--red);font-size:10px;padding:0 6px;letter-spacing:0.2em; }
+  .setup-row { display:flex;gap:8px;align-items:center; }
+  .lbl { font-size:10px;color:var(--dim);letter-spacing:0.3em;margin-bottom:8px; }
+  .api-input { flex:1;background:#0a0a0a;border:1px solid var(--border);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:12px;padding:8px 12px;outline:none;transition:border-color .2s; }
+  .api-input:focus { border-color:var(--cyan);box-shadow:var(--glow-cyan); }
+  .api-input::placeholder { color:#2a2a2a; }
+  .api-status { font-size:10px;margin-top:6px;letter-spacing:0.2em;min-height:16px; }
+  .api-status.ok { color:var(--cyan); }
+  .api-status.err { color:var(--red); }
+
+  /* IMPORT PANEL */
+  .import-area { width:100%;background:#050505;border:1px solid var(--border);color:#aaa;font-family:'Share Tech Mono',monospace;font-size:10px;padding:10px;resize:vertical;min-height:70px;outline:none; }
+  .import-area:focus { border-color:var(--cyan); }
+  .import-hint { font-size:9px;color:#333;margin-top:6px;line-height:1.5; }
+
+  /* BUTTONS */
+  .btn { background:transparent;border:1px solid currentColor;color:var(--red);font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:0.2em;padding:8px 14px;cursor:pointer;transition:all .15s;text-transform:uppercase;white-space:nowrap; }
+  .btn:hover:not(:disabled) { background:var(--red);color:#000;box-shadow:var(--glow-red); }
+  .btn.cyan { color:var(--cyan); }
+  .btn.cyan:hover:not(:disabled) { background:var(--cyan);color:#000;box-shadow:var(--glow-cyan); }
+  .btn.sm { font-size:9px;padding:5px 10px; }
+  .btn:disabled { opacity:.3;cursor:not-allowed; }
+
+  /* STATUS */
+  .status-bar { font-size:10px;color:var(--dim);letter-spacing:0.2em;padding:8px 0;min-height:26px;text-align:center; }
+  .status-bar.active { color:var(--cyan);animation:pulse 1.5s infinite; }
+  .status-bar.err { color:var(--red);animation:none; }
+  .status-bar.ok { color:var(--cyan);animation:none; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+  /* DEBUG */
+  .debug-toggle { font-size:9px;color:#252525;cursor:pointer;letter-spacing:0.2em;text-align:right;margin-bottom:4px;user-select:none; }
+  .debug-toggle:hover { color:#444; }
+  .debug-box { background:#030303;border:1px solid #111;padding:8px;font-size:9px;color:#555;max-height:140px;overflow-y:auto;display:none;margin-bottom:12px; }
+  .debug-box.show { display:block; }
+
+  /* PLAYLIST */
+  .section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border); }
+  .section-title { font-family:'Orbitron',monospace;font-size:11px;color:var(--dim);letter-spacing:0.3em; }
+  .track-card { background:var(--panel);border:1px solid var(--border);padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden; }
+  .track-card::before { content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);transition:background .15s; }
+  .track-card:hover::before { background:var(--red); }
+  .track-card.active { border-color:rgba(255,0,85,.4);background:#110808; }
+  .track-card.active::before { background:var(--red);box-shadow:var(--glow-red); }
+  .track-card.playing { border-color:rgba(0,255,204,.4);background:#081110; }
+  .track-card.playing::before { background:var(--cyan);box-shadow:var(--glow-cyan); }
+  .track-card.generating { animation:cardPulse 1.5s infinite; }
+  @keyframes cardPulse { 0%,100%{opacity:.7}50%{opacity:1} }
+  .track-top { display:flex;gap:8px;align-items:flex-start; }
+  .track-num { font-size:10px;color:var(--dim);min-width:20px;padding-top:2px; }
+  .track-info { flex:1; }
+  .track-artist { font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2; }
+  .track-title { font-size:11px;color:var(--text);margin-top:1px; }
+  .track-meta { display:flex;gap:8px;margin-top:6px;flex-wrap:wrap; }
+  .tag { font-size:9px;padding:2px 6px;border:1px solid;letter-spacing:0.15em;text-transform:uppercase; }
+  .tag-genre { border-color:rgba(255,0,85,.4);color:var(--red); }
+  .tag-bpm { border-color:rgba(0,255,204,.3);color:var(--cyan); }
+  .tag-vocal { border-color:rgba(255,255,255,.1);color:#777; }
+  .track-vibe { font-size:10px;color:#555;margin-top:4px;font-style:italic; }
+  .track-ast { font-size:9px;letter-spacing:0.2em;margin-top:5px; }
+  .track-ast.ready { color:var(--cyan); }
+  .track-ast.gen { color:#ff8800; }
+  .track-ast.fail { color:var(--red); }
+  .play-icon { font-size:18px;color:var(--red);min-width:24px;text-align:center;padding-top:4px; }
+
+  /* PLAYER */
+  .player { position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;background:#080808;border-top:1px solid var(--red);padding:12px 16px 20px;z-index:100;box-shadow:0 -20px 60px rgba(0,0,0,.95); }
+  .player-track { text-align:center;margin-bottom:10px; }
+  .player-artist { font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff; }
+  .player-title { font-size:10px;color:var(--dim);letter-spacing:0.2em;margin-top:2px; }
+  .player-status { font-size:9px;color:var(--cyan);letter-spacing:0.3em;min-height:14px;margin-top:2px; }
+  .progress-wrap { height:4px;background:var(--border);margin-bottom:12px;cursor:pointer; }
+  .progress-fill { height:100%;background:var(--red);box-shadow:var(--glow-red);width:0%;transition:width .5s linear; }
+  .controls { display:flex;align-items:center;justify-content:center;gap:16px; }
+  .ctrl-btn { background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer;transition:all .15s;padding:4px;line-height:1; }
+  .ctrl-btn:hover { color:var(--red);transform:scale(1.15); }
+  .ctrl-btn.main { color:var(--red);font-size:28px;border:1px solid var(--red);border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center; }
+  .ctrl-btn.main:hover { background:var(--red);color:#000;box-shadow:var(--glow-red); }
+  .volume-row { display:flex;align-items:center;gap:8px;margin-top:10px; }
+  .vol-icon { font-size:12px;color:var(--dim); }
+  input[type=range].vol { flex:1;-webkit-appearance:none;height:2px;background:var(--border);outline:none;cursor:pointer; }
+  input[type=range].vol::-webkit-slider-thumb { -webkit-appearance:none;width:12px;height:12px;background:var(--red);border-radius:50%; }
+  .empty { text-align:center;padding:40px 20px;border:1px dashed #111;color:#222; }
+  .empty-icon { font-size:36px;margin-bottom:12px;opacity:.3; }
+  .empty-text { font-size:10px;letter-spacing:0.3em;line-height:1.8; }
+  ::-webkit-scrollbar { width:3px; }
+  ::-webkit-scrollbar-thumb { background:var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="logo">IRON <span>PROTOCOL</span></div>
+    <div class="tagline">◆ AI WORKOUT MUSIC GENERATOR ◆ POWERED BY SJINN ◆</div>
+  </div>
+
+  <!-- API KEY -->
+  <div class="panel">
+    <span class="panel-label">// SJINN CONFIG</span>
+    <div class="lbl">SJINN API KEY</div>
+    <div class="setup-row">
+      <input class="api-input" type="password" id="apiKeyInput"
+        placeholder="הכנס את ה-API Key מ-sjinn.ai/account/api-token"
+        autocomplete="off" spellcheck="false">
+      <button class="btn" onclick="saveApiKey()">SAVE</button>
+    </div>
+    <div class="api-status" id="apiStatus"></div>
+  </div>
+
+  <!-- IMPORT PLAYLIST (from Claude) -->
+  <div class="panel">
+    <span class="panel-label">// IMPORT PLAYLIST</span>
+    <div class="lbl">הדבק כאן JSON של פלייליסט מ-Claude</div>
+    <textarea class="import-area" id="importArea"
+      placeholder='[{"num":1,"artist":"...","title":"...","genre":"...","bpm":150,"vocalist":"Male","vibe":"..."}]'
+      spellcheck="false"></textarea>
+    <div class="import-hint">
+      ← לייצר פלייליסט: שאל את Claude "תייצר לי JSON פלייליסט 10 שירי מטאל/טראנס בפורמט Iron Protocol עם שמות אמנים פיקטיביים בלבד"<br>
+      הדבק את ה-JSON כאן ולחץ LOAD
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn cyan" onclick="loadFromJSON()">⚡ LOAD PLAYLIST</button>
+      <button class="btn sm" onclick="loadDemo()">DEMO</button>
+    </div>
+  </div>
+
+  <div class="status-bar" id="statusBar">// AWAITING COMMAND</div>
+
+  <div class="debug-toggle" onclick="toggleDebug()">[ DEBUG LOG ]</div>
+  <div class="debug-box" id="debugBox"></div>
+
+  <!-- PLAYLIST -->
+  <div id="playlistSection" style="display:none">
+    <div class="section-header">
+      <span class="section-title">▓ PLAYLIST</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn cyan sm" onclick="generateAllAudio()" id="genAllBtn">⚡ GEN ALL AUDIO</button>
+        <button class="btn cyan sm" onclick="downloadAll()" id="dlAllBtn">⬇ ALL</button>
+        <button class="btn sm" onclick="clearPlaylist()">✕</button>
+      </div>
+    </div>
+    <div id="trackList"></div>
+  </div>
+
+  <div id="emptyState" class="empty">
+    <div class="empty-icon">⚡</div>
+    <div class="empty-text">
+      1. שמור API Key של Sjinn<br>
+      2. בקש מ-Claude פלייליסט JSON<br>
+      3. הדבק → LOAD<br>
+      4. לחץ GEN ALL AUDIO
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER -->
+<div class="player" id="player" style="display:none">
+  <div class="player-track">
+    <div class="player-artist" id="playerArtist">—</div>
+    <div class="player-title" id="playerTitle">—</div>
+    <div class="player-status" id="playerStatus"></div>
+  </div>
+  <div class="progress-wrap" onclick="seekAudio(event)">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+  <div class="controls">
+    <button class="ctrl-btn" onclick="nextTrack()">⏭</button>
+    <button class="ctrl-btn main" onclick="togglePlay()" id="playBtn">▶</button>
+    <button class="ctrl-btn" onclick="prevTrack()">⏮</button>
+  </div>
+  <div class="volume-row">
+    <span class="vol-icon">🔈</span>
+    <input type="range" class="vol" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)">
+    <span class="vol-icon">🔊</span>
+  </div>
+</div>
+
+<audio id="audioEl" preload="auto"></audio>
+
+<script>
+const SJINN_BASE = 'https://sjinn.ai/api/un-api';
+let playlist = [], currentIdx = -1, isPlaying = false, apiKey = '';
+const audio = document.getElementById('audioEl');
+
+window.onload = () => {
+  const k = localStorage.getItem('sjinn_api_key');
+  if (k) { apiKey=k; document.getElementById('apiKeyInput').value=k; showApiStatus('✓ KEY LOADED','ok'); }
+  const pl = localStorage.getItem('iron_playlist');
+  if (pl) { try { playlist=JSON.parse(pl); renderPlaylist(); if(playlist.length) showPlayer(); } catch(e){} }
+  setupAudio(); setupMediaSession();
+};
+
+function dbg(m) {
+  const b=document.getElementById('debugBox');
+  const d=document.createElement('div');
+  d.textContent='['+new Date().toLocaleTimeString()+'] '+m;
+  b.appendChild(d); b.scrollTop=b.scrollHeight;
+}
+function toggleDebug() { document.getElementById('debugBox').classList.toggle('show'); }
+
+function saveApiKey() {
+  const v=document.getElementById('apiKeyInput').value.trim();
+  if(!v){showApiStatus('✗ KEY EMPTY','err');return;}
+  apiKey=v; localStorage.setItem('sjinn_api_key',v); showApiStatus('✓ KEY SAVED','ok');
+}
+function showApiStatus(m,t) { const e=document.getElementById('apiStatus'); e.textContent=m; e.className='api-status '+t; }
+
+// ── LOAD FROM JSON ──
+function loadFromJSON() {
+  const raw = document.getElementById('importArea').value.trim();
+  if (!raw) { setStatus('// PASTE JSON FIRST','err'); return; }
+  try {
+    const tracks = JSON.parse(raw);
+    if (!Array.isArray(tracks) || !tracks.length) throw new Error('Not an array');
+    const newTracks = tracks.map(t => ({ ...t, audioUrl:null, audioStatus:'idle', taskId:null }));
+    playlist = [...playlist, ...newTracks];
+    savePlaylist(); renderPlaylist(); showPlayer();
+    setStatus('// +'+newTracks.length+' TRACKS ADDED — TOTAL: '+playlist.length,'ok');
+    document.getElementById('importArea').value = '';
+  } catch(e) {
+    setStatus('// JSON ERROR: '+e.message,'err');
+  }
+}
+
+function loadDemo() {
+  const demo = [
+    {"num":1,"artist":"Neon Carnage","title":"Hyperspeed Kill","genre":"Cyberpunk Metal","bpm":170,"vocalist":"Male","vibe":"Crushing distorted riffs, glitch synths, relentless tempo"},
+    {"num":2,"artist":"Circuit Witch","title":"Override Protocol","genre":"Industrial Trance","bpm":155,"vocalist":"Female","vibe":"Dark trance build, heavy drop, ethereal female vocal"},
+    {"num":3,"artist":"Void Engine","title":"Omega Sequence","genre":"Doom Dubstep","bpm":140,"vocalist":"Instrumental","vibe":"Sub bass devastation, cinematic orchestral scope"},
+    {"num":4,"artist":"HelixCore","title":"Bloodstream Rush","genre":"Metal Trance","bpm":165,"vocalist":"Both","vibe":"Dual male female vocals, epic synth layers, brutal rhythm"},
+    {"num":5,"artist":"Static Predator","title":"Neural Decay","genre":"Industrial Metal","bpm":158,"vocalist":"Male","vibe":"Heavy industrial percussion, distorted synth bass, aggressive"},
+    {"num":6,"artist":"Aurora Collapse","title":"Fracture Point","genre":"Melodic Dubstep","bpm":145,"vocalist":"Female","vibe":"Soaring emotional female vocal, melodic drop, heavy contrast"},
+    {"num":7,"artist":"Killswitch Matrix","title":"Zero Mercy","genre":"Drum and Bass Metal","bpm":174,"vocalist":"Male","vibe":"Fast breakbeats, distorted metal guitar, high energy"},
+    {"num":8,"artist":"Phantom Reactor","title":"Dark Matter Push","genre":"Cinematic Electronic Metal","bpm":162,"vocalist":"Both","vibe":"Orchestral cinematic build, electronic metal fusion, epic"},
+    {"num":9,"artist":"Iron Mantis","title":"Exoskeleton Drive","genre":"Cyberpunk Trance","bpm":148,"vocalist":"Instrumental","vibe":"Futuristic cyberpunk atmosphere, aggressive rave intensity"},
+    {"num":10,"artist":"Sigma Protocol","title":"Final Breach","genre":"Epic Metal Hybrid","bpm":180,"vocalist":"Male","vibe":"Ultimate climax, all elements unleashed, massive finale"}
+  ];
+  document.getElementById('importArea').value = JSON.stringify(demo, null, 2);
+  setStatus('// DEMO LOADED — PRESS LOAD PLAYLIST','ok');
+}
+
+// ── SJINN AUDIO GENERATION ──
+async function generateAllAudio() {
+  if (!apiKey) { showApiStatus('✗ ENTER API KEY FIRST','err'); return; }
+  const btn = document.getElementById('genAllBtn');
+  btn.disabled = true;
+  for (let i=0; i<playlist.length; i++) {
+    if (playlist[i].audioUrl || playlist[i].audioStatus==='generating') continue;
+    setStatus('// SENDING TRACK '+(i+1)+'/'+playlist.length+' TO SJINN...','active');
+    await submitTrack(i);
+    await sleep(1500);
+  }
+  setStatus('// ALL SUBMITTED — POLLING FOR AUDIO...','active');
+  btn.disabled = false;
+  for (let i=0; i<playlist.length; i++) {
+    if (playlist[i].audioStatus==='generating' && playlist[i].taskId) pollTrack(i,0);
+  }
+}
+
+async function submitTrack(idx) {
+  const t = playlist[idx];
+  const msg = `Create an original music track inspired by the ${t.genre} genre. Do NOT copy or reference any real artists, bands, or existing songs. All music must be 100% original. Style: ${t.vibe}. BPM: approximately ${t.bpm}. Vocals: ${t.vocalist}. Make it powerful and energetic for an intense workout session.`;
+  try {
+    dbg('Submitting track '+(idx+1)+': '+t.title);
+    const res = await fetch(SJINN_BASE+'/create_agent_task', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},
+      body: JSON.stringify({message:msg, quality:'quality'})
+    });
+    const raw = await res.text();
+    dbg('Submit ['+(idx+1)+']: '+raw.substring(0,200));
+    const data = JSON.parse(raw);
+    if (data.success && data.data?.chat_id) {
+      playlist[idx].audioStatus='generating';
+      playlist[idx].taskId=data.data.chat_id;
+    } else {
+      playlist[idx].audioStatus='failed';
+      dbg('Submit failed ['+(idx+1)+']: '+(data.errorMsg||'no chat_id'));
+    }
+  } catch(e) {
+    playlist[idx].audioStatus='failed';
+    dbg('Submit error ['+(idx+1)+']: '+e.message);
+  }
+  savePlaylist(); renderTrack(idx);
+}
+
+async function retrySingle(idx) {
+  event.stopPropagation();
+  if (!apiKey) { showApiStatus('✗ ENTER API KEY','err'); return; }
+  playlist[idx].audioStatus='idle'; playlist[idx].taskId=null; renderTrack(idx);
+  await submitTrack(idx);
+  if (playlist[idx].taskId) pollTrack(idx,0);
+}
+
+async function pollTrack(idx, attempts) {
+  if (attempts > 80) {
+    playlist[idx].audioStatus='failed'; savePlaylist(); renderTrack(idx);
+    dbg('Timeout track '+(idx+1));
+    return;
+  }
+  try {
+    const res = await fetch(SJINN_BASE+'/query_agent_task_status', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: playlist[idx].taskId})
+    });
+    const raw = await res.text();
+    if (attempts===0 || attempts%6===0) dbg('Poll ['+(idx+1)+'] attempt '+attempts+': '+raw.substring(0,300));
+    const data = JSON.parse(raw);
+    const status = data.data?.status;
+    const tools = data.data?.tool_results || [];
+
+    // Find any audio URL in all tool results
+    let url = null;
+    for (const tool of tools) {
+      const results = Array.isArray(tool.result) ? tool.result : [];
+      for (const r of results) {
+        if (typeof r==='string' && r.startsWith('http')) {
+          url = r;
+          dbg('Track '+(idx+1)+' URL from "'+tool.name+'": '+r);
+          break;
+        }
+      }
+      if (url) break;
+    }
+
+    if (url) {
+      playlist[idx].audioUrl=url; playlist[idx].audioStatus='ready';
+      savePlaylist(); renderTrack(idx);
+      setStatus('// ✓ TRACK '+(idx+1)+' READY','ok');
+      if (currentIdx===-1) loadTrack(idx);
+      return;
+    }
+
+    if (status===2 || (status===1 && tools.length===0)) {
+      setTimeout(()=>pollTrack(idx,attempts+1), 6000);
+    } else if (status===1 && tools.length>0 && !url) {
+      dbg('Done but no URL. Tools: '+tools.map(t=>t.name+'='+JSON.stringify(t.result)).join(' | '));
+      playlist[idx].audioStatus='failed'; savePlaylist(); renderTrack(idx);
+    } else {
+      setTimeout(()=>pollTrack(idx,attempts+1), 6000);
+    }
+  } catch(e) {
+    dbg('Poll error ['+(idx+1)+']: '+e.message);
+    setTimeout(()=>pollTrack(idx,attempts+1), 8000);
+  }
+}
+
+// ── PLAYER ──
+function loadTrack(idx) {
+  if (idx<0||idx>=playlist.length) return;
+  const t=playlist[idx];
+  if (!t.audioUrl) { setStatus('// TRACK '+(idx+1)+' NOT READY','err'); return; }
+  currentIdx=idx; audio.src=t.audioUrl; audio.load();
+  audio.play().catch(e=>dbg('Play error: '+e.message));
+  isPlaying=true;
+  document.getElementById('playerArtist').textContent=t.artist;
+  document.getElementById('playerTitle').textContent=t.title;
+  document.getElementById('playBtn').textContent='⏸';
+  document.getElementById('playerStatus').textContent='▶ PLAYING';
+  updateMS(t); renderPlaylist();
+}
+function togglePlay() {
+  if (currentIdx===-1){if(playlist.length)loadTrack(0);return;}
+  if (audio.paused){audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';document.getElementById('playerStatus').textContent='▶ PLAYING';}
+  else{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';document.getElementById('playerStatus').textContent='⏸ PAUSED';}
+}
+function nextTrack(){loadTrack((currentIdx+1)%playlist.length);}
+function prevTrack(){if(audio.currentTime>3){audio.currentTime=0;return;}loadTrack((currentIdx-1+playlist.length)%playlist.length);}
+function seekAudio(e){if(!audio.duration)return;const r=e.currentTarget.getBoundingClientRect();audio.currentTime=((e.clientX-r.left)/r.width)*audio.duration;}
+function setVolume(v){audio.volume=v;}
+function setupAudio(){
+  audio.addEventListener('timeupdate',()=>{if(audio.duration)document.getElementById('progressFill').style.width=(audio.currentTime/audio.duration*100)+'%';});
+  audio.addEventListener('ended',nextTrack);
+  audio.addEventListener('error',()=>{ dbg('Audio error: '+(audio.error?.message||'?')); document.getElementById('playerStatus').textContent='✗ AUDIO ERROR'; });
+}
+function setupMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  navigator.mediaSession.setActionHandler('play',()=>{audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';});
+  navigator.mediaSession.setActionHandler('pause',()=>{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';});
+  navigator.mediaSession.setActionHandler('nexttrack',nextTrack);
+  navigator.mediaSession.setActionHandler('previoustrack',prevTrack);
+}
+function updateMS(t){
+  if(!('mediaSession' in navigator))return;
+  navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,album:'IRON PROTOCOL'});
+}
+
+// ── RENDER ──
+function renderPlaylist(){
+  const list=document.getElementById('trackList'),sec=document.getElementById('playlistSection'),emp=document.getElementById('emptyState');
+  if(!playlist.length){sec.style.display='none';emp.style.display='block';return;}
+  sec.style.display='block';emp.style.display='none';
+  list.innerHTML=playlist.map((t,i)=>trackHTML(t,i)).join('');
+}
+function renderTrack(idx){
+  const el=document.getElementById('t-'+idx);
+  if(el){const tmp=document.createElement('div');tmp.innerHTML=trackHTML(playlist[idx],idx);el.replaceWith(tmp.firstChild);}
+}
+function trackHTML(t,i){
+  const a=i===currentIdx,p=a&&isPlaying;
+  const cls=p?'playing':a?'active':'',gc=t.audioStatus==='generating'?'generating':'';
+  let st='';
+  if(t.audioStatus==='ready') st='<div class="track-ast ready">▶ AUDIO READY &nbsp;<span onclick="downloadTrack('+i+',event)" style="cursor:pointer;border:1px solid var(--cyan);padding:1px 6px;font-size:9px;color:var(--cyan)">⬇ DL</span></div>';
+  else if(t.audioStatus==='generating') st='<div class="track-ast gen">⟳ GENERATING... &nbsp;<span onclick="retrySingle('+i+')" style="cursor:pointer;border:1px solid #ff8800;padding:1px 6px;font-size:9px;color:#ff8800">↺ RESTART</span></div>';
+  else if(t.audioStatus==='failed') st='<div class="track-ast fail">✗ FAILED — <span onclick="retrySingle('+i+')" style="cursor:pointer;text-decoration:underline">RETRY</span></div>';
+  else st='<div class="track-ast" style="color:#222">○ <span onclick="retrySingle('+i+')" style="cursor:pointer;color:#333">GEN SINGLE</span></div>';
+  return `<div class="track-card ${cls} ${gc}" id="t-${i}" onclick="loadTrack(${i})">
+    <div class="track-top">
+      <div class="track-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="track-info">
+        <div class="track-artist">${t.artist}</div>
+        <div class="track-title">${t.title}</div>
+        <div class="track-meta">
+          <span class="tag tag-genre">${t.genre}</span>
+          <span class="tag tag-bpm">${t.bpm} BPM</span>
+          <span class="tag tag-vocal">${t.vocalist}</span>
+        </div>
+        <div class="track-vibe">${t.vibe}</div>
+        ${st}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+        <div class="play-icon">${p?'⏸':'▶'}</div>
+        <button onclick="deleteTrack(${i},event)" style="background:transparent;border:1px solid #2a2a2a;color:#555;font-size:13px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-tap-highlight-color:rgba(255,0,85,0.2);touch-action:manipulation" onmouseover="this.style.borderColor='#ff0055';this.style.color='#ff0055'" onmouseout="this.style.borderColor='#2a2a2a';this.style.color='#555'">✕</button>
+      </div>    </div>
+  </div>`;
+}
+function deleteTrack(idx, e) {
+  e.stopPropagation();
+  playlist.splice(idx, 1);
+  if (currentIdx === idx) { audio.pause(); currentIdx=-1; isPlaying=false; document.getElementById('playBtn').textContent='▶'; document.getElementById('playerStatus').textContent=''; }
+  else if (currentIdx > idx) { currentIdx--; }
+  savePlaylist(); renderPlaylist();
+  if (!playlist.length) document.getElementById('player').style.display='none';
+}
+function showPlayer(){document.getElementById('player').style.display='block';}
+function clearPlaylist(){
+  if(!confirm('לנקות פלייליסט?'))return;
+  audio.pause();playlist=[];currentIdx=-1;isPlaying=false;
+  localStorage.removeItem('iron_playlist');
+  document.getElementById('player').style.display='none';
+  renderPlaylist();setStatus('// PLAYLIST CLEARED','');
+}
+function setStatus(m,t){const e=document.getElementById('statusBar');e.textContent=m;e.className='status-bar '+(t||'');}
+function savePlaylist(){localStorage.setItem('iron_playlist',JSON.stringify(playlist));}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ── PWA SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      dbg('SW registered: ' + reg.scope);
+    }).catch(e => dbg('SW error: ' + e.message));
+  });
+}
+
+// ── DOWNLOAD ──
+async function downloadTrack(idx, e) {
+  if (e) e.stopPropagation();
+  const t = playlist[idx];
+  if (!t.audioUrl) { setStatus('// NO AUDIO TO DOWNLOAD','err'); return; }
+  const filename = t.artist + ' - ' + t.title + '.mp3';
+  setStatus('// ⬇ DOWNLOADING: '+t.title,'active');
+  try {
+    const res = await fetch(t.audioUrl);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus('// ✓ SAVED: '+filename,'ok');
+  } catch(err) {
+    // Fallback: open in new tab
+    window.open(t.audioUrl, '_blank');
+    setStatus('// OPENED IN BROWSER (save manually)','ok');
+  }
+}
+
+async function downloadAll() {
+  const ready = playlist.filter(t => t.audioUrl);
+  if (!ready.length) { setStatus('// NO AUDIO READY YET','err'); return; }
+  setStatus('// DOWNLOADING '+ready.length+' TRACKS...','active');
+  for (let i=0; i<playlist.length; i++) {
+    if (!playlist[i].audioUrl) continue;
+    downloadTrack(i);
+    await sleep(800); // stagger downloads
+  }
+  setStatus('// ✓ ALL DOWNLOADS STARTED','ok');
+}
+</script>
+</body>
+</html>
