@@ -487,7 +487,7 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 // ── PWA SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
       dbg('SW registered: ' + reg.scope);
     }).catch(e => dbg('SW error: ' + e.message));
   });
