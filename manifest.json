@@ -2,7 +2,7 @@
   "name": "IRON PROTOCOL",
   "short_name": "IRON",
   "description": "AI Workout Music Generator powered by Sjinn",
-  "start_url": "/",
+  "start_url": "/iron-protocol/",
   "display": "standalone",
   "background_color": "#080808",
   "theme_color": "#ff0055",
