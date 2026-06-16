@@ -484,7 +484,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.8';  // bump on every fix
+const APP_VERSION   = 'V0.1.9';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -862,7 +862,7 @@ function listenToPlaylist() {
     const ready = playlist.filter(t=>t.audioUrl).length;
     if (playlist.length) { document.getElementById('playlistSection').style.display='block'; document.getElementById('emptyState').style.display='none'; showPlayer(); }
     else { document.getElementById('playlistSection').style.display='none'; document.getElementById('emptyState').style.display='block'; document.getElementById('emptyText').textContent = isCreator?'USE GENERATOR ABOVE':'NO TRACKS YET — CHECK BACK SOON'; }
-    setStatus('// '+ready+' / '+playlist.length+' TRACKS READY','ok');
+    setStatus(isCreator ? ('// '+ready+' / '+playlist.length+' TRACKS READY') : '// READY','ok');
     const el3 = document.getElementById('statTracks');
     if (el3) el3.textContent = playlist.length;
   });
