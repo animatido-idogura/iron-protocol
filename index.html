@@ -202,6 +202,12 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <button class="logout-btn" onclick="doSignOut()">✕</button>
   </div>
 
+  <!-- ONLINE COUNTER (visible to all) -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 16px;border-bottom:1px solid var(--border);background:#050505;">
+    <span style="width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:var(--glow-cyan);display:inline-block;animation:pulse 2s infinite;"></span>
+    <span style="font-size:9px;color:var(--dim);letter-spacing:.2em"><span id="globalOnline" style="color:var(--cyan);font-family:'Orbitron',monospace">0</span> ONLINE NOW</span>
+  </div>
+
   <!-- CREATOR: API KEY -->
   <div class="panel creator-only" id="apiPanel">
     <span class="panel-label">// API CONFIG</span>
@@ -211,6 +217,25 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <button class="btn" onclick="saveApiKey()">SAVE</button>
     </div>
     <div style="font-size:10px;margin-top:6px;letter-spacing:.15em;min-height:16px;" id="apiStatus"></div>
+  </div>
+
+  <!-- CREATOR: STATS -->
+  <div class="panel creator-only" id="statsPanel">
+    <span class="panel-label">// STATS</span>
+    <div style="display:flex;gap:0;text-align:center">
+      <div style="flex:1;border-right:1px solid var(--border);padding:8px 0">
+        <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statOnline">0</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">ONLINE NOW</div>
+      </div>
+      <div style="flex:1;border-right:1px solid var(--border);padding:8px 0">
+        <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statUsers">0</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TOTAL USERS</div>
+      </div>
+      <div style="flex:1;padding:8px 0">
+        <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statTracks">0</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TRACKS</div>
+      </div>
+    </div>
   </div>
 
   <!-- CREATOR: GENERATOR -->
@@ -400,6 +425,7 @@ onAuthStateChanged(auth, async user => {
       if (k) { apiKey=k; document.getElementById('apiKeyInput').value=k; showApiStatus('✓ KEY LOADED'); }
     }
     await loadUserData();
+    await initPresence();
     listenToPlaylist();
     setupAudio();
   } else {
@@ -410,6 +436,53 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ── USER DATA ──
+// ── PRESENCE TRACKING ──
+async function initPresence() {
+  if (!currentUser) return;
+  const presenceRef = doc(db, 'presence', currentUser.uid);
+  
+  // Mark user as online
+  await setDoc(presenceRef, {
+    uid: currentUser.uid,
+    name: currentUser.displayName || '',
+    photo: currentUser.photoURL || '',
+    online: true,
+    lastSeen: Date.now()
+  }, { merge: true });
+
+  // Mark offline when page closes
+  window.addEventListener('beforeunload', async () => {
+    await setDoc(presenceRef, { online: false, lastSeen: Date.now() }, { merge: true });
+  });
+
+  // Update lastSeen every 30 seconds (heartbeat)
+  setInterval(async () => {
+    await setDoc(presenceRef, { online: true, lastSeen: Date.now() }, { merge: true });
+  }, 30000);
+
+  // Listen to presence — all users see online count, creator sees full stats
+  onSnapshot(collection(db, 'presence'), snap => {
+    const now = Date.now();
+    const allUsers = snap.docs.map(d => d.data());
+    const onlineNow = allUsers.filter(u => u.online && (now - u.lastSeen) < 60000).length;
+    const totalUsers = allUsers.length;
+
+    // Update global counter (visible to all)
+    const globalEl = document.getElementById('globalOnline');
+    if (globalEl) globalEl.textContent = onlineNow;
+
+    // Update creator stats panel
+    if (isCreator) {
+      const el1 = document.getElementById('statOnline');
+      const el2 = document.getElementById('statUsers');
+      const el3 = document.getElementById('statTracks');
+      if (el1) el1.textContent = onlineNow;
+      if (el2) el2.textContent = totalUsers;
+      if (el3) el3.textContent = playlist.length;
+    }
+  });
+}
+
 async function loadUserData() {
   try {
     const snap = await getDoc(doc(db,'users',currentUser.uid));
@@ -521,6 +594,8 @@ function listenToPlaylist() {
     if (playlist.length) { document.getElementById('playlistSection').style.display='block'; document.getElementById('emptyState').style.display='none'; showPlayer(); }
     else { document.getElementById('playlistSection').style.display='none'; document.getElementById('emptyState').style.display='block'; document.getElementById('emptyText').textContent = isCreator?'USE GENERATOR ABOVE':'NO TRACKS YET — CHECK BACK SOON'; }
     setStatus('// '+ready+' / '+playlist.length+' TRACKS READY','ok');
+    const el3 = document.getElementById('statTracks');
+    if (el3) el3.textContent = playlist.length;
   });
 }
 
