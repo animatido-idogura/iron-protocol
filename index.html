@@ -391,7 +391,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.0';  // bump on every fix
+const APP_VERSION   = 'V0.1.1';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -1064,6 +1064,7 @@ async function uploadCoverToStorage(imageUrl,trackId) {
 window.handleDrop=e=>{e.preventDefault();handleFiles(e.dataTransfer.files);};
 window.handleFiles=async files=>{
   if(!currentUser){setStatus('// ✗ SIGN IN TO UPLOAD','err');return;}
+  if(!isCreator){setStatus('// ✗ CREATOR ONLY — UPLOAD BLOCKED','err');return;}
   const audioFiles=Array.from(files).filter(f=>f.type.startsWith('audio/')||f.name.match(/\.(mp3|wav|m4a|ogg|flac|aac)$/i));
   if(!audioFiles.length){setStatus('// NO AUDIO FILES','err');return;}
   for(const file of audioFiles){
