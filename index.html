@@ -145,7 +145,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 
 /* TABS */
-.tabs{display:flex;border-bottom:1px solid var(--border);position:sticky;top:61px;background:rgba(6,6,6,0.97);backdrop-filter:blur(10px);z-index:90;overflow-x:auto;}
+.tabs{display:flex;border-bottom:1px solid var(--border);position:sticky;top:54px;background:rgba(6,6,6,0.97);backdrop-filter:blur(10px);z-index:90;overflow-x:auto;}
 .tabs::-webkit-scrollbar{display:none;}
 .tab{flex:1;min-width:60px;padding:9px 4px;font-size:8px;letter-spacing:.15em;cursor:pointer;color:var(--dim);text-align:center;border-bottom:2px solid transparent;font-family:'Orbitron',monospace;transition:all .15s;white-space:nowrap;}
 .tab.active{color:var(--red);border-color:var(--red);}
@@ -486,10 +486,19 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.2.3';  // bump on every fix
+const APP_VERSION   = 'V0.2.4';  // bump on every fix
 const ONLINE_BOOST  = 287;       // baseline added to the live "online now" count
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
+
+// Pin the filter tabs flush under the sticky header on any device/screen
+function adjustTabsTop(){
+  const h=document.querySelector('.app-header');
+  const tabs=document.querySelector('.tabs');
+  if(h&&tabs&&h.offsetHeight){ tabs.style.top=h.offsetHeight+'px'; }
+}
+window.addEventListener('resize',adjustTabsTop);
+window.addEventListener('orientationchange',()=>setTimeout(adjustTabsTop,150));
 
 // ── PWA INSTALL / ADD-TO-HOME-SCREEN PROMPT ──
 let deferredPrompt=null;
@@ -566,6 +575,7 @@ onAuthStateChanged(auth, async user => {
     setupMessages();
     listenToPlaylist();
     setupAudio();
+    setTimeout(adjustTabsTop,60); setTimeout(adjustTabsTop,400);
     if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   } else {
     currentUser = null;
