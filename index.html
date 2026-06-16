@@ -133,11 +133,13 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .progress-wrap{height:3px;background:var(--border);margin-bottom:10px;cursor:pointer;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--cyan));width:0%;transition:width .5s linear;}
 .progress-time{display:flex;justify-content:space-between;font-size:8px;color:var(--dim);margin-top:3px;}
-.ctrl-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;}
-.ctrl{background:none;border:none;color:var(--dim);font-size:22px;cursor:pointer;transition:all .15s;padding:4px;line-height:1;}
-.ctrl:hover{color:var(--red);transform:scale(1.15);}
-.ctrl.play{color:var(--red);font-size:30px;border:2px solid var(--red);border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;}
-.ctrl.play:hover{background:var(--red);color:#000;box-shadow:var(--glow-red);}
+.ctrl-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px;}
+.ctrl{background:none;border:none;color:var(--dim);cursor:pointer;transition:all .15s;padding:0;line-height:0;display:flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;}
+.ctrl svg{width:24px;height:24px;display:block;}
+.ctrl:hover{color:var(--red);transform:scale(1.12);}
+.ctrl.play{color:var(--red);border:2px solid var(--red);border-radius:50%;width:58px;height:58px;}
+.ctrl.play svg{width:28px;height:28px;}
+.ctrl.play:hover{background:var(--red);color:#000;box-shadow:var(--glow-red);transform:scale(1.05);}
 .ctrl.mode-on{color:var(--cyan)!important;}
 .ctrl.mode-one{color:var(--red)!important;}
 
@@ -392,13 +394,13 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   </div>
   <div class="progress-time"><span id="pCurrent">0:00</span><span id="pDuration">0:00</span></div>
   <div class="ctrl-row">
-    <button class="ctrl" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle" style="font-size:16px">🔀</button>
-    <button class="ctrl" onclick="prevTrack()" title="Previous">⏮</button>
-    <button class="ctrl" onclick="seekBy(-15)" title="Rewind 15s">⏪</button>
-    <button class="ctrl play" onclick="togglePlay()" id="playBtn">▶</button>
-    <button class="ctrl" onclick="seekBy(15)" title="Forward 15s">⏩</button>
-    <button class="ctrl" onclick="nextTrack()" title="Next">⏭</button>
-    <button class="ctrl" id="repeatBtn" onclick="toggleRepeat()" title="Repeat" style="font-size:16px">🔁</button>
+    <button class="ctrl" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle" aria-label="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
+    <button class="ctrl" onclick="prevTrack()" title="Previous" aria-label="Previous track"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2.2v12H6zM20 6v12L9.5 12z"/></svg></button>
+    <button class="ctrl" onclick="seekBy(-15)" title="Rewind 15s" aria-label="Rewind 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 7 6 12 11 17"/><polyline points="18 7 13 12 18 17"/></svg></button>
+    <button class="ctrl play" onclick="togglePlay()" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+    <button class="ctrl" onclick="seekBy(15)" title="Forward 15s" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 7 18 12 13 17"/><polyline points="6 7 11 12 6 17"/></svg></button>
+    <button class="ctrl" onclick="nextTrack()" title="Next" aria-label="Next track"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.8 6h2.2v12h-2.2zM4 6l10.5 6L4 18z"/></svg></button>
+    <button class="ctrl" id="repeatBtn" onclick="toggleRepeat()" title="Repeat" aria-label="Repeat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
   </div>
 
 </div>
@@ -484,7 +486,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.9';  // bump on every fix
+const APP_VERSION   = 'V0.2.0';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -897,7 +899,7 @@ window.loadTrackById = async function(id) {
     audio.crossOrigin=''; audio.src=t.audioUrl; audio.load();
     try { await audio.play(); isPlaying=true; } catch(e2){ setStatus('// ✗ AUDIO ERROR','err'); return; }
   }
-  document.getElementById('playBtn').textContent = '⏸';
+  setPlayIcon(true);
   document.getElementById('nowPlaying').classList.add('show');
   document.getElementById('playerWrap').classList.add('show');
   startVisualizer();
@@ -929,10 +931,14 @@ window.loadTrackById = async function(id) {
   updatePositionState();
 };
 
+const ICON_PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+function setPlayIcon(playing){const b=document.getElementById('playBtn');if(b){b.innerHTML=playing?ICON_PAUSE:ICON_PLAY;b.setAttribute('aria-label',playing?'Pause':'Play');}}
+
 window.togglePlay = function() {
   if(currentIdx===-1){const f=playlist.findIndex(t=>t.audioUrl);if(f>=0)loadTrackById(playlist[f].id);return;}
-  if(audio.paused){audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';startVisualizer();}
-  else{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';pauseVisualizer();}
+  if(audio.paused){audio.play();isPlaying=true;setPlayIcon(true);startVisualizer();}
+  else{audio.pause();isPlaying=false;setPlayIcon(false);pauseVisualizer();}
 };
 window.nextTrack = function() {
   if(!playlist.length)return;
@@ -974,8 +980,8 @@ function setupAudio() {
   audio.addEventListener('ended',()=>{if(repeatMode===2){audio.currentTime=0;audio.play();}else nextTrack();});
   if('mediaSession' in navigator){
     const h=(a,fn)=>{try{navigator.mediaSession.setActionHandler(a,fn);}catch(e){}};
-    h('play',()=>{audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';startVisualizer();});
-    h('pause',()=>{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';pauseVisualizer();});
+    h('play',()=>{audio.play();isPlaying=true;setPlayIcon(true);startVisualizer();});
+    h('pause',()=>{audio.pause();isPlaying=false;setPlayIcon(false);pauseVisualizer();});
     h('nexttrack',nextTrack);
     h('previoustrack',prevTrack);
     h('seekforward',e=>seekBy(e.seekOffset||15));
@@ -994,9 +1000,9 @@ window.toggleShuffle = function() {
 window.toggleRepeat = function() {
   repeatMode=(repeatMode+1)%3;
   const btn=document.getElementById('repeatBtn');
-  if(repeatMode===0){btn.textContent='🔁';btn.classList.remove('mode-on','mode-one');setStatus('// REPEAT OFF','');}
-  else if(repeatMode===1){btn.textContent='🔁';btn.classList.add('mode-on');btn.classList.remove('mode-one');setStatus('// 🔁 REPEAT ALL','ok');}
-  else{btn.textContent='🔂';btn.classList.remove('mode-on');btn.classList.add('mode-one');setStatus('// 🔂 REPEAT ONE','ok');}
+  if(repeatMode===0){btn.classList.remove('mode-on','mode-one');setStatus('// REPEAT OFF','');}
+  else if(repeatMode===1){btn.classList.add('mode-on');btn.classList.remove('mode-one');setStatus('// 🔁 REPEAT ALL','ok');}
+  else{btn.classList.remove('mode-on');btn.classList.add('mode-one');setStatus('// 🔂 REPEAT ONE','ok');}
 };
 
 // ── LIKE / FAV / SHARE ──
