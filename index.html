@@ -376,7 +376,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, query, orderBy, addDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getStorage, ref, uploadBytes, getDownloadURL }
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 const firebaseConfig = {
@@ -1059,28 +1059,57 @@ async function uploadCoverToStorage(imageUrl,trackId) {
 // ── UPLOAD MP3 ──
 window.handleDrop=e=>{e.preventDefault();handleFiles(e.dataTransfer.files);};
 window.handleFiles=async files=>{
-  const audioFiles=Array.from(files).filter(f=>f.type.startsWith('audio/')||f.name.match(/\.(mp3|wav|m4a|ogg)$/i));
+  if(!currentUser){setStatus('// ✗ SIGN IN TO UPLOAD','err');return;}
+  const audioFiles=Array.from(files).filter(f=>f.type.startsWith('audio/')||f.name.match(/\.(mp3|wav|m4a|ogg|flac|aac)$/i));
   if(!audioFiles.length){setStatus('// NO AUDIO FILES','err');return;}
   for(const file of audioFiles){
-    setStatus('// ⬆ UPLOADING '+file.name+'...','active');
-    const name=file.name.replace(/\.(mp3|wav|m4a|ogg)$/i,'');
+    const name=file.name.replace(/\.(mp3|wav|m4a|ogg|flac|aac)$/i,'');
     let artist='UPLOAD',title=name;
     const dash=name.indexOf(' - ');
     if(dash>0){artist=name.slice(0,dash).trim().toUpperCase();title=name.slice(dash+3).trim();}
     const trackId='track_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+    const ext=(file.name.match(/\.(mp3|wav|m4a|ogg|flac|aac)$/i)?.[1]||'mp3').toLowerCase();
     try{
-      const storageRef=ref(storage,'tracks/'+trackId+'.mp3');
-      await uploadBytes(storageRef,file,{contentType:file.type||'audio/mpeg'});
-      const audioUrl=await getDownloadURL(storageRef);
+      const storageRef=ref(storage,'tracks/'+trackId+'.'+ext);
+      const audioUrl=await uploadWithProgress(storageRef,file,file.type||'audio/mpeg',file.name);
       await setDoc(doc(db,'tracks',trackId),{id:trackId,artist,title,genre:'UPLOADED',bpm:'—',vocalist:'—',vibe:file.name,audioUrl,audioStatus:'ready',likes:0,plays:0,createdAt:Date.now(),createdBy:currentUser?.email||''});
       setStatus('// ✓ '+file.name+' UPLOADED','ok');
       // Generate cover art for uploaded track based on filename/title
       const uploadVibe = title + ', ' + name + ', energetic music, powerful atmosphere';
       const uploadGenre = detectGenreFromName(name);
       generateCoverArt(trackId, uploadGenre, uploadVibe, '—');
-    }catch(e){setStatus('// ✗ UPLOAD FAILED','err');dbg('Upload err:'+e.message);}
+    }catch(e){
+      const reason=storageErrorReason(e);
+      setStatus('// ✗ UPLOAD FAILED: '+reason,'err');
+      dbg('Upload err ['+(e.code||'')+']: '+e.message);
+    }
   }
+  // reset the file input so the same file can be re-selected after a fix
+  const inp=document.getElementById('mp3Input'); if(inp)inp.value='';
 };
+
+// Resumable upload with on-screen progress; resolves to the download URL
+function uploadWithProgress(storageRef,data,contentType,label){
+  return new Promise((resolve,reject)=>{
+    const task=uploadBytesResumable(storageRef,data,{contentType});
+    task.on('state_changed',
+      snap=>{const pct=snap.totalBytes?Math.round(snap.bytesTransferred/snap.totalBytes*100):0;setStatus('// ⬆ UPLOADING '+label+' '+pct+'%','active');},
+      err=>reject(err),
+      async()=>{try{resolve(await getDownloadURL(task.snapshot.ref));}catch(e){reject(e);}}
+    );
+  });
+}
+
+// Turn a Firebase Storage error into a short human-readable reason
+function storageErrorReason(e){
+  const code=e&&e.code?e.code:'';
+  if(code.includes('unauthorized'))return 'NOT ALLOWED (check Storage rules)';
+  if(code.includes('unauthenticated'))return 'NOT SIGNED IN';
+  if(code.includes('quota'))return 'STORAGE QUOTA EXCEEDED';
+  if(code.includes('retry-limit')||code.includes('canceled'))return 'NETWORK — TRY AGAIN';
+  if(code.includes('object-not-found'))return 'BUCKET/PATH MISSING';
+  return (e&&e.message)?e.message.slice(0,60):'UNKNOWN ERROR';
+}
 
 // ── DOWNLOAD ──
 window.downloadTrack=async(id,e)=>{
