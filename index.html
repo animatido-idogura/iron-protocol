@@ -309,6 +309,8 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, query, orderBy }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getStorage, ref, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCKDmWSm9Ab2AbTcPp09wTY2X7Die_-yTU",
@@ -482,6 +484,28 @@ function listenToPlaylist() {
 }
 
 // ── SAVE TRACK TO FIRESTORE (creator only) ──
+// ── UPLOAD AUDIO TO FIREBASE STORAGE ──
+async function uploadAudioToStorage(sjinnUrl, trackId) {
+  try {
+    setStatus('// ⬆ SAVING TO STORAGE...','active');
+    // Fetch the audio from SJINN
+    const resp = await fetch(sjinnUrl);
+    if (!resp.ok) throw new Error('Fetch failed: '+resp.status);
+    const blob = await resp.blob();
+    
+    // Upload to Firebase Storage
+    const storageRef = ref(storage, 'tracks/' + trackId + '.mp3');
+    await uploadBytes(storageRef, blob, { contentType: 'audio/mpeg' });
+    const permanentUrl = await getDownloadURL(storageRef);
+    
+    dbg('Stored: ' + permanentUrl);
+    return permanentUrl;
+  } catch(e) {
+    dbg('Storage upload error: ' + e.message);
+    return sjinnUrl; // fallback to original URL
+  }
+}
+
 async function saveTrackToFirestore(track) {
   try {
     const id = track.id || 'track_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
@@ -792,12 +816,19 @@ async function pollTrack(track, attempts=0) {
     if (url) {
       const bpm   = track.bpm||'';
       const genre = track.genre||'';
+      const trackNum = String(playlist.findIndex(t=>t.id===track.id)+1).padStart(2,'0');
+      
+      // Upload to Firebase Storage for permanent access
+      const permanentUrl = await uploadAudioToStorage(url, track.id);
+      
       await setDoc(doc(db,'tracks',track.id),{
-        audioUrl:url, audioStatus:'ready',
+        audioUrl: permanentUrl,
+        audioUrlOriginal: url,
+        audioStatus:'ready',
         artist: genre.toUpperCase(),
-        title:  bpm+' BPM // TRACK '+String(playlist.findIndex(t=>t.id===track.id)+1).padStart(2,'0')
+        title:  bpm+' BPM // TRACK '+trackNum
       },{merge:true});
-      setStatus('// ✓ TRACK READY','ok');
+      setStatus('// ✓ TRACK READY & SAVED','ok');
       return;
     }
     const status=data.data?.status;
@@ -858,14 +889,28 @@ window.handleFiles = async function(files) {
   const audioFiles=Array.from(files).filter(f=>f.type.startsWith('audio/')||f.name.match(/\.(mp3|wav|m4a|ogg)$/i));
   if(!audioFiles.length){setStatus('// NO AUDIO FILES','err');return;}
   for(const file of audioFiles){
-    const url=URL.createObjectURL(file);
+    setStatus('// ⬆ UPLOADING '+file.name+'...','active');
     const name=file.name.replace(/\.(mp3|wav|m4a|ogg)$/i,'');
     let artist='UPLOAD',title=name;
     const dash=name.indexOf(' - ');
     if(dash>0){artist=name.slice(0,dash).trim().toUpperCase();title=name.slice(dash+3).trim();}
-    const track={artist,title,genre:'UPLOADED',bpm:'—',vocalist:'—',vibe:file.name,audioUrl:url,audioStatus:'ready',likes:0,createdAt:Date.now()};
-    await saveTrackToFirestore(track);
-    setStatus('// ✓ '+file.name+' UPLOADED','ok');
+    
+    // Save track first to get ID
+    const trackId = 'track_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    
+    // Upload directly to Firebase Storage
+    try {
+      const storageRef = ref(storage, 'tracks/' + trackId + '.mp3');
+      await uploadBytes(storageRef, file, { contentType: file.type || 'audio/mpeg' });
+      const permanentUrl = await getDownloadURL(storageRef);
+      
+      const track={artist,title,genre:'UPLOADED',bpm:'—',vocalist:'—',vibe:file.name,audioUrl:permanentUrl,audioStatus:'ready',likes:0,createdAt:Date.now()};
+      await setDoc(doc(db,'tracks',trackId), {...track, id:trackId, createdBy:currentUser.email});
+      setStatus('// ✓ '+file.name+' SAVED TO STORAGE','ok');
+    } catch(e) {
+      dbg('Upload error: '+e.message);
+      setStatus('// ✗ UPLOAD FAILED: '+e.message,'err');
+    }
   }
 };
 
