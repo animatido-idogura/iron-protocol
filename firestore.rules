@@ -2,11 +2,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Tracks: anyone signed in can read; only the creator can write.
     match /tracks/{trackId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
-                   && request.auth.token.email == 'animatido@gmail.com';
+
+      // Anyone signed in can read tracks.
+      allow read: if request.auth != null;
+
+      // Only the creator can add or delete tracks, or edit their content.
+      allow create, delete: if isCreator();
+
+      // The creator can edit anything; any signed-in listener may update
+      // ONLY the counter fields (likes / plays / comments) so that liking,
+      // play counts, and comment counts keep working for everyone.
+      allow update: if isCreator() || (request.auth != null && onlyCounters());
+
+      function isCreator() {
+        return request.auth != null
+               && request.auth.token.email == 'animatido@gmail.com';
+      }
+      function onlyCounters() {
+        return request.resource.data.diff(resource.data)
+                 .affectedKeys()
+                 .hasOnly(['likes', 'plays', 'comments']);
+      }
 
       // Comments: anyone signed in can read and create;
       // a comment can only be deleted by its own author.
@@ -18,7 +35,8 @@ service cloud.firestore {
       }
     }
 
-    // Users: each user can only read/write their own document.
+    // Users: each user can only read/write their own document
+    // (this is where personal likes & favorites are stored).
     match /users/{userId} {
       allow read, write: if request.auth != null
                          && request.auth.uid == userId;
