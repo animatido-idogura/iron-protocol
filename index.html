@@ -124,6 +124,7 @@
   .empty-text { font-size:10px;letter-spacing:0.3em;line-height:1.8; }
   ::-webkit-scrollbar { width:3px; }
   ::-webkit-scrollbar-thumb { background:var(--red); }
+  .btn.shuffle-on { background:var(--cyan);color:#000;border-color:var(--cyan); }
 
   /* LIKES */
   .like-btn { background:transparent;border:none;font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;transition:transform .15s;color:#2a2a2a; }
@@ -247,6 +248,7 @@
     <div class="section-header">
       <span class="section-title">🎵 IRON PROTOCOL</span>
       <div style="display:flex;gap:8px">
+        <button class="btn cyan sm" onclick="toggleShuffle()" id="shuffleBtn">🔀 SHUFFLE</button>
         <button class="btn cyan sm creator-only" onclick="generateAllAudio()" id="genAllBtn">⚡ GEN ALL</button>
         <button class="btn cyan sm creator-only" onclick="downloadAll()">⬇ ALL</button>
         <button class="btn sm creator-only" onclick="clearPlaylist()">✕</button>
@@ -329,6 +331,8 @@ let playlist = [];
 let currentIdx = -1;
 let isPlaying = false;
 let apiKey = '';
+let shuffleMode = false;
+let shuffleOrder = [];
 let userLikes = new Set();
 let userFavs = new Set();
 const audio = document.getElementById('audioEl');
@@ -360,9 +364,11 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('userMode').textContent = isCreator ? 'CREATOR' : 'LISTENER';
     document.getElementById('userMode').className = 'user-mode ' + (isCreator ? 'creator' : 'listener');
 
-    // Show creator panels
+    // Show/hide creator panels — reset on every login
+    document.querySelectorAll('.creator-only').forEach(el => {
+      el.style.display = isCreator ? 'block' : 'none';
+    });
     if (isCreator) {
-      document.querySelectorAll('.creator-only').forEach(el => el.style.display = 'block');
       const k = localStorage.getItem('sjinn_api_key');
       if (k) { apiKey=k; document.getElementById('apiKeyInput').value=k; showApiStatus('✓ KEY LOADED','ok'); }
     }
@@ -390,6 +396,59 @@ async function loadUserData() {
       userFavs  = new Set(snap.data().favs  || []);
     }
   } catch(e) { dbg('loadUserData error: '+e.message); }
+}
+
+// ── SHUFFLE ──
+window.toggleShuffle = function() {
+  shuffleMode = !shuffleMode;
+  const btn = document.getElementById('shuffleBtn');
+  if (shuffleMode) {
+    btn.classList.add('shuffle-on');
+    btn.textContent = '🔀 ON';
+    // Build shuffled order
+    const readyTracks = playlist.map((t,i)=>i).filter(i=>playlist[i].audioUrl);
+    shuffleOrder = readyTracks.sort(() => Math.random() - 0.5);
+    setStatus('// 🔀 SHUFFLE ON','ok');
+  } else {
+    btn.classList.remove('shuffle-on');
+    btn.textContent = '🔀 SHUFFLE';
+    shuffleOrder = [];
+    setStatus('// SHUFFLE OFF','');
+  }
+};
+
+// ── NEXT TRACK WITH SHUFFLE ──
+const _origNextTrack = window.nextTrack;
+window.nextTrack = function() {
+  const readyTracks = playlist.filter(t=>t.audioUrl);
+  if (!readyTracks.length) return;
+  
+  if (shuffleMode && shuffleOrder.length) {
+    const currentPos = shuffleOrder.indexOf(currentIdx);
+    const nextPos = (currentPos + 1) % shuffleOrder.length;
+    loadTrackById(playlist[shuffleOrder[nextPos]].id);
+  } else {
+    let next = currentIdx + 1;
+    while (next < playlist.length && !playlist[next].audioUrl) next++;
+    if (next < playlist.length) loadTrackById(playlist[next].id);
+    else {
+      const first = playlist.findIndex(t=>t.audioUrl);
+      if (first >= 0) loadTrackById(playlist[first].id);
+    }
+  }
+};
+
+// ── AUDIO URL PROXY FIX ──
+// Test if audio URL is playable, try direct play
+async function testAudioUrl(url) {
+  return new Promise((resolve) => {
+    const testAudio = new Audio();
+    testAudio.crossOrigin = 'anonymous';
+    testAudio.oncanplay = () => resolve(true);
+    testAudio.onerror = () => resolve(false);
+    testAudio.src = url;
+    setTimeout(() => resolve(false), 5000);
+  });
 }
 
 async function saveUserData() {
@@ -596,16 +655,36 @@ window.switchTab = function(name) {
 };
 
 // ── PLAYER ──
-window.loadTrackById = function(id) {
+window.loadTrackById = async function(id) {
   const idx = playlist.findIndex(t => t.id === id);
   if (idx < 0) return;
   const t = playlist[idx];
   if (!t.audioUrl) { setStatus('// TRACK NOT READY YET','err'); return; }
   currentIdx = idx;
+  
+  // Try to play — handle CORS by setting crossOrigin
+  audio.crossOrigin = 'anonymous';
   audio.src = t.audioUrl;
   audio.load();
-  audio.play().catch(e => dbg('Play error: '+e.message));
-  isPlaying = true;
+  
+  try {
+    await audio.play();
+    isPlaying = true;
+  } catch(e) {
+    // Fallback: try without crossOrigin
+    audio.crossOrigin = '';
+    audio.src = t.audioUrl;
+    audio.load();
+    try {
+      await audio.play();
+      isPlaying = true;
+    } catch(e2) {
+      dbg('Play error: '+e2.message);
+      setStatus('// ✗ AUDIO ERROR — URL MAY HAVE EXPIRED','err');
+      isPlaying = false;
+      return;
+    }
+  }
   document.getElementById('playerArtist').textContent = t.artist || '—';
   document.getElementById('playerTitle').textContent   = t.title  || '—';
   document.getElementById('playBtn').textContent = '⏸';
