@@ -441,9 +441,11 @@ async function loadComments(trackId) {
     const q = query(collection(db,'tracks',trackId,'comments'), orderBy('createdAt','asc'));
     onSnapshot(q, snap => {
       const comments = snap.docs.map(d=>({id:d.id,...d.data()}));
-      // Update count
+      // Update count in UI and save to track doc
       const countEl = document.getElementById('cc-'+trackId);
       if (countEl) countEl.textContent = comments.length;
+      // Update track document with comment count
+      try { await updateDoc(doc(db,'tracks',trackId), {comments: comments.length}); } catch(e){}
       // Render
       if (!comments.length) {
         list.innerHTML = '<div style="font-size:9px;color:var(--dim);text-align:center;padding:12px;letter-spacing:.2em">BE THE FIRST TO COMMENT</div>';
@@ -668,7 +670,7 @@ function cardHTML(t,i) {
       <button class="action-btn" onclick="openShare('${t.id}',event)">🔗</button>
       ${isCreator?`<button class="action-btn" onclick="downloadTrack('${t.id}',event)" style="font-size:13px">⬇</button>`:''}
       ${isCreator?`<button class="action-btn" onclick="deleteTrack('${t.id}',event)" style="font-size:13px;color:#333">✕</button>`:''}
-      <span class="comments-toggle" onclick="toggleComments('${t.id}',event)">💬 <span id="cc-${t.id}">0</span></span>
+      <span class="comments-toggle" onclick="toggleComments('${t.id}',event)">💬 <span id="cc-${t.id}">${t.comments||0}</span></span>
     </div>
     <div class="comments-panel" id="cp-${t.id}" onclick="event.stopPropagation()">
       <div class="comment-list" id="cl-${t.id}"><div style="font-size:9px;color:var(--dim);text-align:center;padding:10px">LOADING...</div></div>
