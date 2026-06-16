@@ -159,6 +159,24 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 ::-webkit-scrollbar{width:2px;}
 ::-webkit-scrollbar-thumb{background:var(--red);}
+
+/* COMMENTS */
+.comments-panel{display:none;background:#080008;border-top:1px solid var(--border);padding:10px 12px;}
+.comments-panel.show{display:block;}
+.comment-list{max-height:180px;overflow-y:auto;margin-bottom:8px;}
+.comment-item{padding:7px 0;border-bottom:1px solid #0f0f0f;display:flex;gap:8px;align-items:flex-start;}
+.comment-av{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;}
+.comment-body{flex:1;}
+.comment-user{font-size:9px;color:var(--red);letter-spacing:.1em;}
+.comment-text{font-size:11px;color:var(--text);margin-top:2px;line-height:1.4;}
+.comment-time{font-size:8px;color:var(--dim);margin-top:2px;}
+.comment-input-row{display:flex;gap:6px;}
+.comment-inp{flex:1;background:#050505;border:1px solid var(--border);color:#fff;font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px 10px;outline:none;}
+.comment-inp:focus{border-color:var(--cyan);}
+.comment-send{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-size:11px;padding:7px 12px;cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all .15s;white-space:nowrap;}
+.comment-send:hover{background:var(--cyan);color:#000;}
+.comments-toggle{font-size:9px;color:var(--dim);cursor:pointer;letter-spacing:.15em;transition:color .15s;}
+.comments-toggle:hover{color:var(--cyan);}
 </style>
 </head>
 <body>
@@ -329,7 +347,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, query, orderBy }
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, query, orderBy, addDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
@@ -398,6 +416,95 @@ async function loadUserData() {
     if (snap.exists()) { userLikes=new Set(snap.data().likes||[]); userFavs=new Set(snap.data().favs||[]); }
   } catch(e){}
 }
+// ── COMMENTS ──
+const openCommentPanels = new Set();
+
+window.toggleComments = async function(trackId, e) {
+  e.stopPropagation();
+  const panel = document.getElementById('cp-'+trackId);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('show');
+  if (isOpen) {
+    panel.classList.remove('show');
+    openCommentPanels.delete(trackId);
+  } else {
+    panel.classList.add('show');
+    openCommentPanels.add(trackId);
+    await loadComments(trackId);
+  }
+};
+
+async function loadComments(trackId) {
+  const list = document.getElementById('cl-'+trackId);
+  if (!list) return;
+  try {
+    const q = query(collection(db,'tracks',trackId,'comments'), orderBy('createdAt','asc'));
+    onSnapshot(q, snap => {
+      const comments = snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Update count
+      const countEl = document.getElementById('cc-'+trackId);
+      if (countEl) countEl.textContent = comments.length;
+      // Render
+      if (!comments.length) {
+        list.innerHTML = '<div style="font-size:9px;color:var(--dim);text-align:center;padding:12px;letter-spacing:.2em">BE THE FIRST TO COMMENT</div>';
+        return;
+      }
+      list.innerHTML = comments.map(c => `
+        <div class="comment-item">
+          <img class="comment-av" src="${c.userPhoto||''}" onerror="this.style.display='none'" alt="">
+          <div class="comment-body">
+            <div class="comment-user">${c.userName||'USER'}</div>
+            <div class="comment-text">${escapeHtml(c.text)}</div>
+            <div class="comment-time">${timeAgo(c.createdAt)}${c.userId===currentUser?.uid?` &nbsp;<span onclick="deleteComment('${trackId}','${c.id}',event)" style="cursor:pointer;color:var(--dim);font-size:8px">✕</span>`:''}</div>
+          </div>
+        </div>`).join('');
+      list.scrollTop = list.scrollHeight;
+    });
+  } catch(e) { dbg('Comments error: '+e.message); }
+}
+
+window.submitComment = async function(trackId) {
+  if (!currentUser) return;
+  const inp = document.getElementById('ci-'+trackId);
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  try {
+    const commentRef = doc(collection(db,'tracks',trackId,'comments'));
+    await setDoc(commentRef, {
+      text,
+      userId: currentUser.uid,
+      userName: currentUser.displayName?.split(' ')[0] || 'USER',
+      userPhoto: currentUser.photoURL || '',
+      createdAt: Date.now()
+    });
+    // Increment comment count on track
+    await updateDoc(doc(db,'tracks',trackId), {comments: increment(1)});
+  } catch(e) { dbg('Submit comment error: '+e.message); }
+};
+
+window.deleteComment = async function(trackId, commentId, e) {
+  e.stopPropagation();
+  try { await deleteDoc(doc(db,'tracks',trackId,'comments',commentId)); }
+  catch(e) { dbg('Delete comment error: '+e.message); }
+};
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff/60000);
+  const h = Math.floor(diff/3600000);
+  const d = Math.floor(diff/86400000);
+  if (d>0) return d+'d ago';
+  if (h>0) return h+'h ago';
+  if (m>0) return m+'m ago';
+  return 'just now';
+}
+
 async function saveUserData() {
   if (!currentUser) return;
   try { await setDoc(doc(db,'users',currentUser.uid),{likes:[...userLikes],favs:[...userFavs],name:currentUser.displayName,updatedAt:Date.now()},{merge:true}); } catch(e){}
@@ -561,6 +668,14 @@ function cardHTML(t,i) {
       <button class="action-btn" onclick="openShare('${t.id}',event)">🔗</button>
       ${isCreator?`<button class="action-btn" onclick="downloadTrack('${t.id}',event)" style="font-size:13px">⬇</button>`:''}
       ${isCreator?`<button class="action-btn" onclick="deleteTrack('${t.id}',event)" style="font-size:13px;color:#333">✕</button>`:''}
+      <span class="comments-toggle" onclick="toggleComments('${t.id}',event)">💬 <span id="cc-${t.id}">0</span></span>
+    </div>
+    <div class="comments-panel" id="cp-${t.id}">
+      <div class="comment-list" id="cl-${t.id}"><div style="font-size:9px;color:var(--dim);text-align:center;padding:10px">LOADING...</div></div>
+      <div class="comment-input-row">
+        <input class="comment-inp" id="ci-${t.id}" placeholder="Add a comment..." maxlength="200" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
+        <button class="comment-send" onclick="submitComment('${t.id}')">SEND</button>
+      </div>
     </div>` : '';
   return `<div class="track-card ${cls} ${gc}" onclick="${ready?`loadTrackById('${t.id}')`:''}" id="tc-${t.id}">
     <div class="tc-top">
