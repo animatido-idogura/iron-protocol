@@ -342,9 +342,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <div class="progress-time"><span id="pCurrent">0:00</span><span id="pDuration">0:00</span></div>
   <div class="ctrl-row">
     <button class="ctrl" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle" style="font-size:16px">🔀</button>
-    <button class="ctrl" onclick="prevTrack()">⏮</button>
+    <button class="ctrl" onclick="prevTrack()" title="Previous">⏮</button>
+    <button class="ctrl" onclick="seekBy(-15)" title="Rewind 15s">⏪</button>
     <button class="ctrl play" onclick="togglePlay()" id="playBtn">▶</button>
-    <button class="ctrl" onclick="nextTrack()">⏭</button>
+    <button class="ctrl" onclick="seekBy(15)" title="Forward 15s">⏩</button>
+    <button class="ctrl" onclick="nextTrack()" title="Next">⏭</button>
     <button class="ctrl" id="repeatBtn" onclick="toggleRepeat()" title="Repeat" style="font-size:16px">🔁</button>
   </div>
 
@@ -366,7 +368,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </div>
 
 <div class="toast" id="toast"></div>
-<audio id="audioEl" preload="auto"></audio>
+<audio id="audioEl" preload="auto" playsinline webkit-playsinline></audio>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -428,6 +430,7 @@ onAuthStateChanged(auth, async user => {
     await initPresence();
     listenToPlaylist();
     setupAudio();
+    if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   } else {
     currentUser = null;
     document.getElementById('loginScreen').style.display = 'flex';
@@ -649,7 +652,15 @@ window.loadTrackById = async function(id) {
     setTimeout(()=>clearInterval(w),120000);
   }
   renderAll(); renderFavs();
-  if ('mediaSession' in navigator) navigator.mediaSession.metadata=new MediaMetadata({title:t.title||'—',artist:t.artist||'—',album:'IRON PROTOCOL',artwork:t.coverUrl?[{src:t.coverUrl,sizes:'512x512'}]:[]});
+  if ('mediaSession' in navigator) {
+    const origin=location.origin+location.pathname.replace(/[^/]*$/,'');
+    const artwork=t.coverUrl
+      ? [{src:t.coverUrl,sizes:'512x512',type:'image/png'}]
+      : [{src:origin+'icon-192.png',sizes:'192x192',type:'image/png'},{src:origin+'icon-512.png',sizes:'512x512',type:'image/png'}];
+    navigator.mediaSession.metadata=new MediaMetadata({title:t.title||'—',artist:t.artist||'—',album:'IRON PROTOCOL',artwork});
+    navigator.mediaSession.playbackState='playing';
+  }
+  updatePositionState();
 };
 
 window.togglePlay = function() {
@@ -671,15 +682,40 @@ window.prevTrack = function() {
   while(prev>=0&&!playlist[prev].audioUrl)prev--;
   if(prev>=0)loadTrackById(playlist[prev].id);
 };
-window.seekAudio = e=>{if(!audio.duration)return;const r=e.currentTarget.getBoundingClientRect();audio.currentTime=((e.clientX-r.left)/r.width)*audio.duration;};
+window.seekAudio = e=>{if(!audio.duration)return;const r=e.currentTarget.getBoundingClientRect();audio.currentTime=((e.clientX-r.left)/r.width)*audio.duration;updatePositionState();};
+
+// Skip forward / rewind within the current track (seconds)
+window.seekBy = function(sec){
+  if(!audio.duration)return;
+  audio.currentTime=Math.min(Math.max(0,audio.currentTime+sec),audio.duration);
+  updatePositionState();
+};
 
 function fmtTime(s){const m=Math.floor(s/60);return m+':'+(Math.floor(s%60)<10?'0':'')+Math.floor(s%60);}
+
+function updatePositionState(){
+  if(!('mediaSession' in navigator)||!navigator.mediaSession.setPositionState)return;
+  if(!isFinite(audio.duration)||audio.duration<=0)return;
+  try{navigator.mediaSession.setPositionState({duration:audio.duration,playbackRate:audio.playbackRate||1,position:Math.min(audio.currentTime,audio.duration)});}catch(e){}
+}
 
 function setupAudio() {
   audio.volume = 1.0;
   audio.addEventListener('timeupdate',()=>{if(!audio.duration)return;document.getElementById('pFill').style.width=(audio.currentTime/audio.duration*100)+'%';document.getElementById('pCurrent').textContent=fmtTime(audio.currentTime);document.getElementById('pDuration').textContent=fmtTime(audio.duration);});
+  audio.addEventListener('loadedmetadata',updatePositionState);
+  audio.addEventListener('play',()=>{if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';updatePositionState();});
+  audio.addEventListener('pause',()=>{if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused';});
   audio.addEventListener('ended',()=>{if(repeatMode===2){audio.currentTime=0;audio.play();}else nextTrack();});
-  if('mediaSession' in navigator){navigator.mediaSession.setActionHandler('nexttrack',nextTrack);navigator.mediaSession.setActionHandler('previoustrack',prevTrack);}
+  if('mediaSession' in navigator){
+    const h=(a,fn)=>{try{navigator.mediaSession.setActionHandler(a,fn);}catch(e){}};
+    h('play',()=>{audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';startVisualizer();});
+    h('pause',()=>{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';pauseVisualizer();});
+    h('nexttrack',nextTrack);
+    h('previoustrack',prevTrack);
+    h('seekforward',e=>seekBy(e.seekOffset||15));
+    h('seekbackward',e=>seekBy(-(e.seekOffset||15)));
+    h('seekto',e=>{if(e.fastSeek&&'fastSeek' in audio){audio.fastSeek(e.seekTime);}else{audio.currentTime=e.seekTime;}updatePositionState();});
+  }
 }
 
 // ── SHUFFLE & REPEAT ──
@@ -849,6 +885,23 @@ window.saveApiKey = function() {
 };
 function showApiStatus(m){const e=document.getElementById('apiStatus');e.textContent=m;e.style.color=m.includes('✓')?'var(--cyan)':'var(--red)';}
 
+// ── UNIQUE TRACK NAME GENERATOR ──
+const NAME_ADJ = ['Iron','Crimson','Savage','Brutal','Molten','Titanium','Phantom','Voltage','Obsidian','Feral','Atomic','Seismic','Nuclear','Venom','Thunder','Apex','Razor','Inferno','Glacier','Chrome','Rogue','Vortex','Primal','Eclipse','Onyx','Hyper','Berserk','Cobalt','Wraith','Solar','Toxic','Sonic','Electric','Frozen','Burning','Shadow','Neon','Hollow','Vicious','Radiant'];
+const NAME_NOUN = ['Surge','Protocol','Engine','Pulse','Storm','Reactor','Fury','Override','Anthem','Machine','Beast','Forge','Strike','Rampage','Circuit','Detonation','Onslaught','Adrenaline','Havoc','Momentum','Uprising','Warpath','Combustion','Bloodline','Discharge','Tremor','Cataclysm','Velocity','Frequency','Awakening','Eruption','Mirage','Empire','Horizon','Requiem','Vendetta','Paradox','Genesis','Dominion','Reckoning'];
+const NAME_SUFFIX = ['','','',' Pt.II',' (Redline)',' (Overdrive)',' (Max Output)',' (Peak)',' (Unleashed)',' (Reload)',' (Heavy)'];
+
+function makeUniqueTrackName(){
+  const used=new Set(playlist.map(t=>(t.title||'').toLowerCase()));
+  for(let i=0;i<80;i++){
+    const adj=NAME_ADJ[Math.floor(Math.random()*NAME_ADJ.length)];
+    const noun=NAME_NOUN[Math.floor(Math.random()*NAME_NOUN.length)];
+    const suffix=NAME_SUFFIX[Math.floor(Math.random()*NAME_SUFFIX.length)];
+    const name=`${adj} ${noun}${suffix}`;
+    if(!used.has(name.toLowerCase()))return name;
+  }
+  return `Track ${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`;
+}
+
 window.createPlaylist = async function() {
   if(!apiKey){showApiStatus('✗ ENTER KEY');return;}
   const pool=GENRE_POOLS[document.getElementById('genreMix').value];
@@ -893,8 +946,9 @@ async function pollTrack(track,attempts) {
     if(url){
       const trackNum=String(playlist.findIndex(t=>t.id===track.id)+1).padStart(2,'0');
       const permanentUrl=await uploadAudioToStorage(url,track.id);
-      await setDoc(doc(db,'tracks',track.id),{audioUrl:permanentUrl,audioUrlOriginal:url,audioStatus:'ready',artist:track.genre.toUpperCase(),title:track.bpm+' BPM // TRACK '+trackNum},{merge:true});
-      setStatus('// ✓ TRACK '+trackNum+' READY','ok');
+      const trackTitle=makeUniqueTrackName();
+      await setDoc(doc(db,'tracks',track.id),{audioUrl:permanentUrl,audioUrlOriginal:url,audioStatus:'ready',artist:track.genre.toUpperCase(),title:trackTitle},{merge:true});
+      setStatus('// ✓ '+trackTitle+' READY','ok');
       generateCoverArt(track.id,track.genre,track.vibe,track.bpm);
       return;
     }
