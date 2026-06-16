@@ -66,21 +66,21 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .upload-zone input{display:none;}
 
 /* NOW PLAYING */
-.now-playing{padding:12px 16px;border-top:1px solid var(--border);background:rgba(8,0,8,0.98);backdrop-filter:blur(10px);display:none;position:fixed;bottom:148px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:199;}
+.now-playing{padding:10px 16px 8px;border-top:1px solid var(--red);background:rgba(4,0,4,0.99);backdrop-filter:blur(20px);display:none;position:fixed;bottom:148px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:199;box-shadow:0 -4px 20px rgba(0,0,0,0.95);}
 .now-playing.show{display:block;}
 .np-label{font-size:8px;color:var(--red);letter-spacing:.4em;margin-bottom:10px;}
-.np-top-row{display:flex;gap:14px;align-items:center;margin-bottom:12px;}
-.np-cover{width:80px;height:80px;object-fit:cover;border:1px solid var(--red);flex-shrink:0;border-radius:2px;display:none;}
+.np-top-row{display:flex;gap:10px;align-items:center;margin-bottom:8px;}
+.np-cover{width:56px;height:56px;object-fit:cover;border:1px solid var(--red);flex-shrink:0;border-radius:2px;display:none;}
 .np-cover.show{display:block;}
-.np-cover-placeholder{width:80px;height:80px;background:#0a0a0a;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.np-cover-placeholder{width:56px;height:56px;background:#0a0a0a;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 .np-info{flex:1;}
-.np-artist{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#fff;}
+.np-artist{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;}
 .np-title{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px;}
 .np-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .np-tag{font-size:8px;padding:2px 7px;border:1px solid;letter-spacing:.12em;}
 .np-tag.genre{border-color:rgba(255,0,85,.4);color:var(--red);}
 .np-tag.bpm{border-color:rgba(0,255,204,.3);color:var(--cyan);}
-.np-waveform{height:36px;display:flex;align-items:center;gap:2px;}
+.np-waveform{height:24px;display:flex;align-items:center;gap:2px;}
 .np-waveform .bar{flex:1;background:var(--red);border-radius:1px;opacity:.3;animation:wave 1s ease-in-out infinite;}
 .np-waveform .bar:nth-child(odd){animation-delay:.1s;}
 .np-waveform .bar:nth-child(3n){animation-delay:.2s;}
