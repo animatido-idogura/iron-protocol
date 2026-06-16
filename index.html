@@ -486,7 +486,8 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.2.1';  // bump on every fix
+const APP_VERSION   = 'V0.2.2';  // bump on every fix
+const ONLINE_BOOST  = 287;       // baseline added to the live "online now" count
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -604,17 +605,18 @@ async function initPresence() {
     const allUsers = snap.docs.map(d => d.data());
     const onlineNow = allUsers.filter(u => u.online && (now - u.lastSeen) < 60000).length;
     const totalUsers = allUsers.length;
+    const displayOnline = onlineNow + ONLINE_BOOST;
 
     // Update global counter (visible to all)
     const globalEl = document.getElementById('globalOnline');
-    if (globalEl) globalEl.textContent = onlineNow;
+    if (globalEl) globalEl.textContent = displayOnline;
 
     // Update creator stats panel (ONLINE NOW + tracks).
     // TOTAL USERS comes from the registered-users listener below, not presence.
     if (isCreator) {
       const el1 = document.getElementById('statOnline');
       const el3 = document.getElementById('statTracks');
-      if (el1) el1.textContent = onlineNow;
+      if (el1) el1.textContent = displayOnline;
       if (el3) el3.textContent = playlist.length;
     }
   });
