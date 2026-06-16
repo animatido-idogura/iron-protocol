@@ -35,6 +35,15 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .app-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:rgba(6,6,6,0.97);backdrop-filter:blur(10px);z-index:100;}
 .header-logo{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--red);letter-spacing:.1em;flex:1;}
 .app-version{font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:400;letter-spacing:.15em;color:#39ff14;text-shadow:0 0 6px rgba(57,255,20,0.9),0 0 12px rgba(57,255,20,0.5);vertical-align:middle;}
+.users-modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9500;display:none;align-items:center;justify-content:center;padding:20px;}
+.users-modal.show{display:flex;}
+.users-box{background:#0a0a0a;border:1px solid var(--cyan);box-shadow:0 0 30px rgba(0,255,204,0.35);width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;padding:16px;border-radius:2px;}
+.users-title{font-family:'Orbitron',monospace;font-size:12px;color:var(--cyan);letter-spacing:.12em;margin-bottom:12px;flex-shrink:0;}
+.users-list{overflow-y:auto;flex:1;border:1px solid var(--border);background:#050505;padding:4px;margin-bottom:12px;}
+.user-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-bottom:1px solid #111;}
+.user-row:last-child{border-bottom:none;}
+.user-row-num{font-family:'Orbitron',monospace;font-size:10px;color:var(--dim);flex-shrink:0;width:24px;}
+.user-row-email{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text);word-break:break-all;}
 .install-banner{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:14px;width:calc(100% - 24px);max-width:480px;background:#0a0a0a;border:1px solid var(--cyan);box-shadow:0 0 24px rgba(0,255,204,0.35);display:flex;align-items:center;gap:10px;padding:12px 12px;z-index:9000;transition:transform .35s ease;border-radius:2px;}
 .install-banner.show{transform:translateX(-50%) translateY(0);}
 .install-banner .ib-icon{font-size:26px;flex-shrink:0;}
@@ -238,9 +247,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statOnline">0</div>
         <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">ONLINE NOW</div>
       </div>
-      <div style="flex:1;border-right:1px solid var(--border);padding:8px 0">
+      <div style="flex:1;border-right:1px solid var(--border);padding:8px 0;cursor:pointer" onclick="openUsersModal()" title="View user emails">
         <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statUsers">0</div>
-        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TOTAL USERS</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TOTAL USERS ▾</div>
       </div>
       <div style="flex:1;padding:8px 0">
         <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statTracks">0</div>
@@ -380,6 +389,15 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 <div class="toast" id="toast"></div>
 
+<!-- USERS MODAL (creator) -->
+<div class="users-modal" id="usersModal" onclick="closeUsersModal()">
+  <div class="users-box" onclick="event.stopPropagation()">
+    <div class="users-title">// USERS <span id="usersCount"></span></div>
+    <div class="users-list" id="usersList"></div>
+    <button class="share-close" onclick="closeUsersModal()">CLOSE</button>
+  </div>
+</div>
+
 <!-- INSTALL / ADD-TO-HOME-SCREEN BANNER -->
 <div class="install-banner" id="installBanner">
   <div class="ib-icon">📲</div>
@@ -397,7 +415,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, query, orderBy, addDoc }
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, getDocs, query, orderBy, addDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
@@ -413,7 +431,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.5';  // bump on every fix
+const APP_VERSION   = 'V0.1.6';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -486,6 +504,8 @@ onAuthStateChanged(auth, async user => {
       if (k) { apiKey=k; document.getElementById('apiKeyInput').value=k; showApiStatus('✓ KEY LOADED'); }
     }
     await loadUserData();
+    // Record this user's email so the creator can see the user list
+    try { await setDoc(doc(db,'users',currentUser.uid),{email:currentUser.email||'',name:currentUser.displayName||'',photo:currentUser.photoURL||'',lastSeen:Date.now()},{merge:true}); } catch(e){}
     await initPresence();
     listenToPlaylist();
     setupAudio();
@@ -551,6 +571,28 @@ async function loadUserData() {
     if (snap.exists()) { userLikes=new Set(snap.data().likes||[]); userFavs=new Set(snap.data().favs||[]); }
   } catch(e){}
 }
+
+// ── USERS MODAL (creator only) ──
+window.openUsersModal = async function() {
+  if (!isCreator) return;
+  const modal = document.getElementById('usersModal');
+  const list  = document.getElementById('usersList');
+  const countEl = document.getElementById('usersCount');
+  modal.classList.add('show');
+  list.innerHTML = '<div style="color:var(--dim);font-size:11px;padding:10px">Loading…</div>';
+  try {
+    const snap = await getDocs(collection(db,'users'));
+    const rows = snap.docs.map(d=>d.data()).filter(u=>u && u.email);
+    rows.sort((a,b)=>(b.lastSeen||0)-(a.lastSeen||0));
+    if (countEl) countEl.textContent = '('+rows.length+')';
+    list.innerHTML = rows.length
+      ? rows.map((u,i)=>`<div class="user-row"><span class="user-row-num">${String(i+1).padStart(2,'0')}</span><span class="user-row-email">${u.email}</span></div>`).join('')
+      : '<div style="color:var(--dim);font-size:11px;padding:10px">No users yet</div>';
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--red);font-size:11px;padding:10px">Error: '+e.message+'</div>';
+  }
+};
+window.closeUsersModal = function() { document.getElementById('usersModal').classList.remove('show'); };
 // ── COMMENTS ──
 const openCommentPanels = new Set();
 
