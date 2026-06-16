@@ -13,6 +13,7 @@
       "storage.rules",
       ".firebaserc",
       "**/.git/**",
+      "**/.claude/**",
       "**/node_modules/**"
     ]
   }
