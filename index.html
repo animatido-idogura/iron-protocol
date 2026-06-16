@@ -431,7 +431,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.6';  // bump on every fix
+const APP_VERSION   = 'V0.1.7';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -553,16 +553,24 @@ async function initPresence() {
     const globalEl = document.getElementById('globalOnline');
     if (globalEl) globalEl.textContent = onlineNow;
 
-    // Update creator stats panel
+    // Update creator stats panel (ONLINE NOW + tracks).
+    // TOTAL USERS comes from the registered-users listener below, not presence.
     if (isCreator) {
       const el1 = document.getElementById('statOnline');
-      const el2 = document.getElementById('statUsers');
       const el3 = document.getElementById('statTracks');
       if (el1) el1.textContent = onlineNow;
-      if (el2) el2.textContent = totalUsers;
       if (el3) el3.textContent = playlist.length;
     }
   });
+
+  // Creator only: TOTAL USERS = number of registered users (users collection)
+  if (isCreator) {
+    onSnapshot(collection(db, 'users'), snap => {
+      const registered = snap.docs.filter(d => d.data() && d.data().email).length;
+      const el2 = document.getElementById('statUsers');
+      if (el2) el2.textContent = registered;
+    });
+  }
 }
 
 async function loadUserData() {
