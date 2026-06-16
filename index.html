@@ -486,7 +486,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.2.0';  // bump on every fix
+const APP_VERSION   = 'V0.2.1';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -1150,6 +1150,30 @@ const GENRE_POOLS = {
 const BPMS=[138,142,145,148,150,153,155,158,160,162,165,168,170,172,174,178,180];
 const VOCALISTS=['Male','Female','Instrumental','Both'];
 
+// ── MADNESS ENGINE — every generation pushes the AI wilder ──
+let madnessLevel = parseInt(localStorage.getItem('iron_madness_level')||'0');
+const MADNESS_INTENSITY=[
+  'pushing the intensity hard',
+  'relentless and unhinged, no holding back',
+  'completely over-the-top and explosive',
+  'deranged, maximal, zero restraint',
+  'apocalyptic wall of sound — total chaos forged into groove'
+];
+const MADNESS_ELEMENTS=[
+  'sudden tempo shifts','an unexpected genre fusion mid-track','a massive breakdown drop',
+  'double-time blast beats','orchestral hits and choir stabs','glitched stutter edits',
+  'detuned growling bass','a time-signature switch','reverse risers and huge impacts',
+  'a screaming lead solo','industrial machine percussion','earth-shaking sub drops',
+  'a dramatic key change into the final chorus','a cinematic build into a brutal climax'
+];
+function madnessSpice(level){
+  const tier=Math.min(Math.floor(level/2),MADNESS_INTENSITY.length-1);
+  const intensity=MADNESS_INTENSITY[Math.floor(Math.random()*(tier+1))];
+  const n=Math.min(2+level,MADNESS_ELEMENTS.length);
+  const picks=[...MADNESS_ELEMENTS].sort(()=>Math.random()-0.5).slice(0,n);
+  return `MADNESS LEVEL ${level}: ${intensity}. Go wild and experimental — work in ${picks.join(', ')}. Make it crazier, heavier and more unexpected than anything before, while keeping it a cohesive, addictive high-energy gym anthem.`;
+}
+
 window.saveApiKey = function() {
   const v=document.getElementById('apiKeyInput').value.trim();
   if(!v){showApiStatus('✗ EMPTY');return;}
@@ -1178,7 +1202,8 @@ window.createPlaylist = async function() {
   if(!apiKey){showApiStatus('✗ ENTER KEY');return;}
   const pool=GENRE_POOLS[document.getElementById('genreMix').value];
   const count=parseInt(document.getElementById('trackCount').value);
-  setStatus('// ⚡ CREATING '+count+' TRACKS...','active');
+  madnessLevel++; localStorage.setItem('iron_madness_level',String(madnessLevel));
+  setStatus('// ⚡ CREATING '+count+' TRACKS — MADNESS LVL '+madnessLevel+' 🔥','active');
   document.querySelector('[onclick="createPlaylist()"]').disabled=true;
   for(let i=0;i<count;i++){
     const genre=pool.genres[Math.floor(Math.random()*pool.genres.length)];
@@ -1198,7 +1223,7 @@ window.createPlaylist = async function() {
 
 async function submitTrack(track) {
   const seed=Date.now()+Math.random().toString(36).slice(2,5);
-  const msg=`Create a completely original ${track.genre} music track. Seed:${seed}. Style: ${track.vibe}. BPM:~${track.bpm}. Vocals:${track.vocalist}. Powerful and energetic for intense gym workout. 100% original.`;
+  const msg=`Create a completely original ${track.genre} music track. Seed:${seed}. Style: ${track.vibe}. BPM:~${track.bpm}. Vocals:${track.vocalist}. Powerful and energetic for intense gym workout. 100% original. ${madnessSpice(madnessLevel)}`;
   try {
     const res=await fetch(SJINN_BASE+'/create_agent_task',{method:'POST',headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({message:msg,quality:'quality'})});
     const data=await res.json();
