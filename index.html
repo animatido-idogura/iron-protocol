@@ -670,14 +670,14 @@ function cardHTML(t,i) {
       ${isCreator?`<button class="action-btn" onclick="deleteTrack('${t.id}',event)" style="font-size:13px;color:#333">✕</button>`:''}
       <span class="comments-toggle" onclick="toggleComments('${t.id}',event)">💬 <span id="cc-${t.id}">0</span></span>
     </div>
-    <div class="comments-panel" id="cp-${t.id}">
+    <div class="comments-panel" id="cp-${t.id}" onclick="event.stopPropagation()">
       <div class="comment-list" id="cl-${t.id}"><div style="font-size:9px;color:var(--dim);text-align:center;padding:10px">LOADING...</div></div>
       <div class="comment-input-row">
-        <input class="comment-inp" id="ci-${t.id}" placeholder="Add a comment..." maxlength="200" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
-        <button class="comment-send" onclick="submitComment('${t.id}')">SEND</button>
+        <input class="comment-inp" id="ci-${t.id}" placeholder="Add a comment..." maxlength="200" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){event.stopPropagation();submitComment('${t.id}');}">
+        <button class="comment-send" onclick="event.stopPropagation();submitComment('${t.id}')">SEND</button>
       </div>
     </div>` : '';
-  return `<div class="track-card ${cls} ${gc}" onclick="${ready?`loadTrackById('${t.id}')`:''}" id="tc-${t.id}">
+  return `<div class="track-card ${cls} ${gc}" id="tc-${t.id}" onclick="${ready?`if(!event.target.closest('.comments-panel,.tc-actions'))loadTrackById('${t.id}')`:''}" >
     <div class="tc-top">
       ${coverEl}
       <div class="tc-info">
