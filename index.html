@@ -13,7 +13,7 @@
 <style>
 :root{--red:#ff0055;--cyan:#00ffcc;--gold:#ffd700;--dark:#060606;--panel:#0c0c0c;--border:#1a1a1a;--text:#cccccc;--dim:#444;--glow-red:0 0 24px rgba(255,0,85,0.6);--glow-cyan:0 0 24px rgba(0,255,204,0.6);}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--dark);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden;}
+body{background:var(--dark);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden;padding-bottom:300px;}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px);pointer-events:none;z-index:9999;}
 
 /* LOGIN */
@@ -66,7 +66,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .upload-zone input{display:none;}
 
 /* NOW PLAYING */
-.now-playing{padding:14px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0a0005 0%,var(--dark) 100%);display:none;}
+.now-playing{padding:12px 16px;border-top:1px solid var(--border);background:rgba(8,0,8,0.98);backdrop-filter:blur(10px);display:none;position:fixed;bottom:148px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:199;}
 .now-playing.show{display:block;}
 .np-label{font-size:8px;color:var(--red);letter-spacing:.4em;margin-bottom:10px;}
 .np-top-row{display:flex;gap:14px;align-items:center;margin-bottom:12px;}
@@ -89,7 +89,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .np-waveform.paused .bar{animation:none;height:3px;opacity:.15;}
 
 /* PLAYER */
-.player-wrap{padding:10px 16px 14px;border-bottom:1px solid var(--border);display:none;}
+.player-wrap{padding:10px 16px 14px;border-top:1px solid var(--red);background:rgba(6,6,6,0.98);backdrop-filter:blur(10px);display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:200;box-shadow:0 -10px 40px rgba(0,0,0,0.9);}
 .player-wrap.show{display:block;}
 .progress-wrap{height:3px;background:var(--border);margin-bottom:10px;cursor:pointer;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--cyan));width:0%;transition:width .5s linear;}
@@ -239,8 +239,8 @@ input[type=range].vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;h
   </div>
 
   <div class="status-bar" id="statusBar">// LOADING...</div>
-  <div style="font-size:9px;color:#252525;cursor:pointer;letter-spacing:.2em;text-align:right;padding:0 16px 4px;display:none" class="creator-only" onclick="document.getElementById('debugBox').classList.toggle('show')">[ DEBUG ]</div>
-  <div style="background:#030303;border:1px solid #111;margin:0 16px 8px;padding:8px;font-size:9px;color:#555;max-height:100px;overflow-y:auto;display:none;" id="debugBox" class="show-debug"></div>
+  <div style="font-size:9px;color:#252525;cursor:pointer;letter-spacing:.2em;text-align:right;padding:0 16px 4px;" class="creator-only" onclick="document.getElementById('debugBox').classList.toggle('show')">[ DEBUG ]</div>
+  <div style="background:#030303;border:1px solid #111;margin:0 16px 8px;padding:8px;font-size:9px;color:#555;max-height:120px;overflow-y:auto;display:none;" id="debugBox"></div>
 
   <!-- PLAYLIST -->
   <div id="playlistSection" style="display:none">
@@ -783,9 +783,12 @@ async function generateCoverArt(trackId,genre,vibe,bpm) {
     let style='dark energy explosion, music visualization, dramatic lighting, album art';
     for(const[k,v] of Object.entries(styleMap))if(genre.toLowerCase().includes(k.toLowerCase())){style=v;break;}
     const prompt=`Album cover artwork: ${style}. Mood: ${vibe.split(',').slice(0,2).join(',')}. ${bpm} BPM energy. Square format, no text, no letters, highly detailed digital art, dramatic cinematic lighting, professional music album cover.`;
+    dbg('Generating cover for '+trackId+' genre:'+genre);
     const res=await fetch(SJINN_BASE+'/create_tool_task',{method:'POST',headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({tool_type:'nano-banana-image-pro-api',input:{prompt,aspect_ratio:'1:1',resolution:'1K'}})});
     const data=await res.json();
+    dbg('Cover task response: '+JSON.stringify(data).slice(0,200));
     if(!data.success){dbg('Cover task failed:'+data.errorMsg);return;}
+    dbg('Cover task started: '+data.data.task_id);
     pollCoverTask(trackId,data.data.task_id,0);
   }catch(e){dbg('Cover err:'+e.message);}
 }
@@ -797,12 +800,14 @@ async function pollCoverTask(trackId,taskId,attempts) {
     const res=await fetch(SJINN_BASE+'/query_tool_task_status',{method:'POST',headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({task_id:taskId})});
     const data=await res.json();
     const status=data.data?.status;const urls=data.data?.output_urls||[];
+    dbg('Cover poll status:'+status+' urls:'+urls.length+' attempt:'+attempts);
     if(status===1&&urls.length){
+      dbg('Cover URL found: '+urls[0]);
       const coverUrl=await uploadCoverToStorage(urls[0],trackId);
       await setDoc(doc(db,'tracks',trackId),{coverUrl},{merge:true});
-      dbg('Cover ready: '+trackId);
-    }else if(status===-1){dbg('Cover failed '+trackId);}
-    else pollCoverTask(trackId,taskId,attempts+1);
+      dbg('Cover saved for: '+trackId);
+    }else if(status===-1){dbg('Cover generation failed for '+trackId);}
+    else{dbg('Cover still processing, retry '+attempts);pollCoverTask(trackId,taskId,attempts+1);}
   }catch(e){pollCoverTask(trackId,taskId,attempts+1);}
 }
 
