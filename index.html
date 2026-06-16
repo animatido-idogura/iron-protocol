@@ -439,7 +439,7 @@ async function loadComments(trackId) {
   if (!list) return;
   try {
     const q = query(collection(db,'tracks',trackId,'comments'), orderBy('createdAt','asc'));
-    onSnapshot(q, snap => {
+    onSnapshot(q, async snap => {
       const comments = snap.docs.map(d=>({id:d.id,...d.data()}));
       // Update count in UI and save to track doc
       const countEl = document.getElementById('cc-'+trackId);
