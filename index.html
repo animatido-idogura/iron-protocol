@@ -763,6 +763,19 @@ async function uploadAudioToStorage(sjinnUrl,trackId) {
   }catch(e){dbg('Storage err:'+e.message);return sjinnUrl;}
 }
 
+// ── DETECT GENRE FROM FILENAME ──
+function detectGenreFromName(name) {
+  const lower = name.toLowerCase();
+  if (lower.includes('metal') || lower.includes('rock') || lower.includes('heavy')) return 'Metal';
+  if (lower.includes('trance') || lower.includes('cyber') || lower.includes('techno')) return 'Trance';
+  if (lower.includes('dub') || lower.includes('bass') || lower.includes('dnb') || lower.includes('drum')) return 'Dubstep';
+  if (lower.includes('rap') || lower.includes('hip') || lower.includes('trap')) return 'Rap';
+  if (lower.includes('mediter') || lower.includes('arabic') || lower.includes('oriental') || lower.includes('middle')) return 'Mediterranean';
+  if (lower.includes('electronic') || lower.includes('synth') || lower.includes('dark')) return 'Electronic';
+  if (lower.includes('industrial')) return 'Industrial';
+  return 'Electronic'; // default
+}
+
 // ── COVER ART ──
 async function generateCoverArt(trackId,genre,vibe,bpm) {
   try{
@@ -820,6 +833,10 @@ window.handleFiles=async files=>{
       const audioUrl=await getDownloadURL(storageRef);
       await setDoc(doc(db,'tracks',trackId),{id:trackId,artist,title,genre:'UPLOADED',bpm:'—',vocalist:'—',vibe:file.name,audioUrl,audioStatus:'ready',likes:0,plays:0,createdAt:Date.now(),createdBy:currentUser?.email||''});
       setStatus('// ✓ '+file.name+' UPLOADED','ok');
+      // Generate cover art for uploaded track based on filename/title
+      const uploadVibe = title + ', ' + name + ', energetic music, powerful atmosphere';
+      const uploadGenre = detectGenreFromName(name);
+      generateCoverArt(trackId, uploadGenre, uploadVibe, '—');
     }catch(e){setStatus('// ✗ UPLOAD FAILED','err');dbg('Upload err:'+e.message);}
   }
 };
