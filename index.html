@@ -35,6 +35,31 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .app-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:rgba(6,6,6,0.97);backdrop-filter:blur(10px);z-index:100;}
 .header-logo{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--red);letter-spacing:.1em;flex:1;}
 .app-version{font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:400;letter-spacing:.15em;color:#39ff14;text-shadow:0 0 6px rgba(57,255,20,0.9),0 0 12px rgba(57,255,20,0.5);vertical-align:middle;}
+.envelope-btn{position:relative;background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-size:13px;padding:3px 8px;cursor:pointer;transition:all .15s;}
+.envelope-btn:hover{background:var(--cyan);color:#000;box-shadow:var(--glow-cyan);}
+.env-dot{position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);display:none;}
+.env-dot.show{display:block;animation:pulse 1.5s infinite;}
+.msg-input{width:100%;background:#050505;border:1px solid var(--border);color:#fff;font-family:'Share Tech Mono',monospace;font-size:12px;padding:9px 12px;outline:none;margin-bottom:8px;}
+.msg-input:focus{border-color:var(--cyan);}
+.msg-textarea{width:100%;min-height:90px;resize:vertical;background:#050505;border:1px solid var(--border);color:#fff;font-family:'Share Tech Mono',monospace;font-size:12px;padding:9px 12px;outline:none;margin-bottom:8px;}
+.msg-textarea:focus{border-color:var(--cyan);}
+.msg-send{width:100%;background:var(--cyan);color:#000;border:none;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:.1em;padding:10px;cursor:pointer;margin-bottom:12px;}
+.msg-send:hover{box-shadow:var(--glow-cyan);}
+.msg-thread-label{font-size:9px;color:var(--dim);letter-spacing:.2em;margin-bottom:6px;}
+.msg-row{padding:10px;border-bottom:1px solid #111;}
+.msg-row:last-child{border-bottom:none;}
+.msg-from{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan);word-break:break-all;}
+.msg-meta{font-size:8px;color:var(--dim);letter-spacing:.15em;margin:2px 0 6px;}
+.msg-subj{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#fff;}
+.msg-text{font-size:12px;color:var(--text);line-height:1.5;margin-top:4px;white-space:pre-wrap;}
+.msg-reply{margin-top:8px;padding:8px 10px;background:#05140f;border-left:2px solid var(--cyan);font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;}
+.msg-reply-label{font-size:8px;color:var(--cyan);letter-spacing:.2em;margin-bottom:3px;}
+.msg-reply-row{display:flex;gap:6px;margin-top:8px;}
+.msg-reply-input{flex:1;background:#050505;border:1px solid var(--border);color:#fff;font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px 10px;outline:none;}
+.msg-reply-input:focus{border-color:var(--cyan);}
+.msg-reply-btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-size:10px;padding:6px 10px;cursor:pointer;font-family:'Orbitron',monospace;white-space:nowrap;}
+.msg-reply-btn:hover{background:var(--cyan);color:#000;}
+.msg-row.unanswered{background:#140505;}
 .users-modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9500;display:none;align-items:center;justify-content:center;padding:20px;}
 .users-modal.show{display:flex;}
 .users-box{background:#0a0a0a;border:1px solid var(--cyan);box-shadow:0 0 30px rgba(0,255,204,0.35);width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;padding:16px;border-radius:2px;}
@@ -219,6 +244,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <img class="user-av" id="userAv" src="" alt="">
     <span class="user-nm" id="userNm"></span>
     <span class="user-mode-badge" id="userMode">LISTENER</span>
+    <button class="envelope-btn" id="envelopeBtn" onclick="openUserMessages()" title="Message the creator" style="display:none">✉<span class="env-dot" id="envDot"></span></button>
     <button class="logout-btn" onclick="doSignOut()">✕</button>
   </div>
 
@@ -251,9 +277,14 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statUsers">0</div>
         <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TOTAL USERS ▾</div>
       </div>
-      <div style="flex:1;padding:8px 0">
+      <div style="flex:1;border-right:1px solid var(--border);padding:8px 0">
         <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statTracks">0</div>
         <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">TRACKS</div>
+      </div>
+      <div style="flex:1;padding:8px 0;cursor:pointer;position:relative" onclick="openMessagesAdmin()" title="View messages">
+        <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);text-shadow:var(--glow-cyan)" id="statMessages">0</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:4px">MESSAGES ▾</div>
+        <span class="env-dot" id="statMsgDot" style="display:none;top:6px;right:14px"></span>
       </div>
     </div>
   </div>
@@ -398,6 +429,28 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   </div>
 </div>
 
+<!-- USER MESSAGES MODAL (listener -> creator) -->
+<div class="users-modal" id="userMsgModal" onclick="closeUserMessages()">
+  <div class="users-box" onclick="event.stopPropagation()">
+    <div class="users-title">// MESSAGE THE CREATOR</div>
+    <input class="msg-input" id="msgSubject" placeholder="Subject..." maxlength="80">
+    <textarea class="msg-textarea" id="msgBody" placeholder="Your message (ideas, bugs, improvements)..." maxlength="1000"></textarea>
+    <button class="msg-send" onclick="submitUserMessage()">SEND MESSAGE</button>
+    <div class="msg-thread-label" id="msgThreadLabel" style="display:none">// YOUR MESSAGES</div>
+    <div class="users-list" id="userMsgThread" style="display:none"></div>
+    <button class="share-close" onclick="closeUserMessages()">CLOSE</button>
+  </div>
+</div>
+
+<!-- ADMIN MESSAGES MODAL (creator) -->
+<div class="users-modal" id="adminMsgModal" onclick="closeMessagesAdmin()">
+  <div class="users-box" onclick="event.stopPropagation()">
+    <div class="users-title">// MESSAGES <span id="adminMsgCount"></span></div>
+    <div class="users-list" id="adminMsgList"></div>
+    <button class="share-close" onclick="closeMessagesAdmin()">CLOSE</button>
+  </div>
+</div>
+
 <!-- INSTALL / ADD-TO-HOME-SCREEN BANNER -->
 <div class="install-banner" id="installBanner">
   <div class="ib-icon">📲</div>
@@ -415,7 +468,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, getDocs, query, orderBy, addDoc }
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, increment, getDoc, getDocs, query, where, orderBy, addDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
@@ -431,7 +484,7 @@ const firebaseConfig = {
 
 const CREATOR_EMAIL = 'animatido@gmail.com';
 const SJINN_BASE    = 'https://sjinn.ai/api/un-api';
-const APP_VERSION   = 'V0.1.7';  // bump on every fix
+const APP_VERSION   = 'V0.1.8';  // bump on every fix
 document.title = 'IRON PROTOCOL 🎵 ' + APP_VERSION;
 ['appVersion','appVersionLogin'].forEach(id=>{const _v=document.getElementById(id);if(_v)_v.textContent=APP_VERSION;});
 
@@ -507,6 +560,7 @@ onAuthStateChanged(auth, async user => {
     // Record this user's email so the creator can see the user list
     try { await setDoc(doc(db,'users',currentUser.uid),{email:currentUser.email||'',name:currentUser.displayName||'',photo:currentUser.photoURL||'',lastSeen:Date.now()},{merge:true}); } catch(e){}
     await initPresence();
+    setupMessages();
     listenToPlaylist();
     setupAudio();
     if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -601,6 +655,109 @@ window.openUsersModal = async function() {
   }
 };
 window.closeUsersModal = function() { document.getElementById('usersModal').classList.remove('show'); };
+
+// ── MESSAGES (listener <-> creator) ──
+let userMessages = [], allMessages = [];
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmtDate(ts){try{return new Date(ts).toLocaleString('en',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+
+function setupMessages(){
+  if(!currentUser) return;
+  if(isCreator){
+    // Creator: watch all messages -> count + unanswered notification dot
+    onSnapshot(collection(db,'messages'), snap => {
+      allMessages = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      const unanswered = allMessages.filter(m=>!m.reply).length;
+      const cEl=document.getElementById('statMessages'); if(cEl)cEl.textContent=allMessages.length;
+      const dot=document.getElementById('statMsgDot'); if(dot)dot.style.display=unanswered>0?'block':'none';
+      if(document.getElementById('adminMsgModal').classList.contains('show')) renderAdminMessages();
+    });
+  } else {
+    // Listener: show envelope, watch own messages -> red dot for unread replies
+    const env=document.getElementById('envelopeBtn'); if(env)env.style.display='';
+    onSnapshot(query(collection(db,'messages'), where('userId','==',currentUser.uid)), snap => {
+      userMessages = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      const unread = userMessages.some(m=>m.reply && !m.readByUser);
+      const dot=document.getElementById('envDot'); if(dot)dot.classList.toggle('show',unread);
+      if(document.getElementById('userMsgModal').classList.contains('show')) renderUserThread();
+    });
+  }
+}
+
+// Listener side
+window.openUserMessages = async function(){
+  document.getElementById('userMsgModal').classList.add('show');
+  renderUserThread();
+  // mark any replies as read -> clears the red dot
+  for(const m of userMessages){
+    if(m.reply && !m.readByUser){
+      try{ await updateDoc(doc(db,'messages',m.id),{readByUser:true}); }catch(e){}
+    }
+  }
+};
+window.closeUserMessages = function(){ document.getElementById('userMsgModal').classList.remove('show'); };
+function renderUserThread(){
+  const wrap=document.getElementById('userMsgThread');
+  const label=document.getElementById('msgThreadLabel');
+  if(!userMessages.length){ wrap.style.display='none'; label.style.display='none'; return; }
+  wrap.style.display='block'; label.style.display='block';
+  wrap.innerHTML = userMessages.map(m=>`
+    <div class="msg-row">
+      <div class="msg-subj">${esc(m.subject)||'(no subject)'}</div>
+      <div class="msg-meta">${fmtDate(m.createdAt)}</div>
+      <div class="msg-text">${esc(m.body)}</div>
+      ${m.reply?`<div class="msg-reply"><div class="msg-reply-label">CREATOR REPLIED</div>${esc(m.reply)}</div>`:`<div class="msg-meta" style="color:var(--orange)">⏳ Waiting for reply</div>`}
+    </div>`).join('');
+}
+window.submitUserMessage = async function(){
+  const subj=document.getElementById('msgSubject').value.trim();
+  const body=document.getElementById('msgBody').value.trim();
+  if(!body){ showToast('✗ Write a message first'); return; }
+  try{
+    await addDoc(collection(db,'messages'),{
+      userId:currentUser.uid, email:currentUser.email||'', name:currentUser.displayName||'',
+      subject:subj, body:body, createdAt:Date.now(), reply:'', repliedAt:null, readByUser:true
+    });
+    document.getElementById('msgSubject').value='';
+    document.getElementById('msgBody').value='';
+    showToast('✓ Message sent to creator');
+  }catch(e){ showToast('✗ Failed: '+e.message); }
+};
+
+// Creator side
+window.openMessagesAdmin = function(){
+  if(!isCreator) return;
+  document.getElementById('adminMsgModal').classList.add('show');
+  renderAdminMessages();
+};
+window.closeMessagesAdmin = function(){ document.getElementById('adminMsgModal').classList.remove('show'); };
+function renderAdminMessages(){
+  const list=document.getElementById('adminMsgList');
+  const countEl=document.getElementById('adminMsgCount');
+  if(countEl)countEl.textContent='('+allMessages.length+')';
+  if(!allMessages.length){ list.innerHTML='<div style="color:var(--dim);font-size:11px;padding:10px">No messages yet</div>'; return; }
+  list.innerHTML = allMessages.map(m=>`
+    <div class="msg-row ${m.reply?'':'unanswered'}">
+      <div class="msg-from">✉ ${esc(m.email)}</div>
+      <div class="msg-meta">${fmtDate(m.createdAt)}</div>
+      <div class="msg-subj">${esc(m.subject)||'(no subject)'}</div>
+      <div class="msg-text">${esc(m.body)}</div>
+      ${m.reply?`<div class="msg-reply"><div class="msg-reply-label">YOUR REPLY</div>${esc(m.reply)}</div>`:''}
+      <div class="msg-reply-row">
+        <input class="msg-reply-input" id="reply-${m.id}" placeholder="${m.reply?'Update reply...':'Type a reply...'}">
+        <button class="msg-reply-btn" onclick="replyMessage('${m.id}')">REPLY</button>
+      </div>
+    </div>`).join('');
+}
+window.replyMessage = async function(id){
+  const inp=document.getElementById('reply-'+id);
+  const text=inp?inp.value.trim():'';
+  if(!text){ showToast('✗ Write a reply first'); return; }
+  try{
+    await updateDoc(doc(db,'messages',id),{reply:text, repliedAt:Date.now(), readByUser:false});
+    showToast('✓ Reply sent');
+  }catch(e){ showToast('✗ Failed: '+e.message); }
+};
 // ── COMMENTS ──
 const openCommentPanels = new Set();
 
