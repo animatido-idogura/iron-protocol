@@ -66,7 +66,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .upload-zone input{display:none;}
 
 /* NOW PLAYING */
-.now-playing{padding:10px 16px 8px;border-top:1px solid var(--red);background:rgba(4,0,4,0.99);backdrop-filter:blur(20px);display:none;position:fixed;bottom:148px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:199;box-shadow:0 -4px 20px rgba(0,0,0,0.95);}
+.now-playing{padding:10px 16px 0;background:transparent;display:none;}
 .now-playing.show{display:block;}
 .np-label{font-size:8px;color:var(--red);letter-spacing:.4em;margin-bottom:10px;}
 .np-top-row{display:flex;gap:10px;align-items:center;margin-bottom:8px;}
@@ -80,16 +80,10 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .np-tag{font-size:8px;padding:2px 7px;border:1px solid;letter-spacing:.12em;}
 .np-tag.genre{border-color:rgba(255,0,85,.4);color:var(--red);}
 .np-tag.bpm{border-color:rgba(0,255,204,.3);color:var(--cyan);}
-.np-waveform{height:24px;display:flex;align-items:center;gap:2px;}
-.np-waveform .bar{flex:1;background:var(--red);border-radius:1px;opacity:.3;animation:wave 1s ease-in-out infinite;}
-.np-waveform .bar:nth-child(odd){animation-delay:.1s;}
-.np-waveform .bar:nth-child(3n){animation-delay:.2s;}
-.np-waveform .bar:nth-child(4n){animation-delay:.35s;}
-@keyframes wave{0%,100%{height:3px;opacity:.15}50%{height:100%;opacity:.9}}
-.np-waveform.paused .bar{animation:none;height:3px;opacity:.15;}
+/* waveform now uses canvas */
 
 /* PLAYER */
-.player-wrap{padding:10px 16px 14px;border-top:1px solid var(--red);background:rgba(6,6,6,0.98);backdrop-filter:blur(10px);display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:200;box-shadow:0 -10px 40px rgba(0,0,0,0.9);}
+.player-wrap{padding:0 16px 14px;background:transparent;display:none;}
 .player-wrap.show{display:block;}
 .progress-wrap{height:3px;background:var(--border);margin-bottom:10px;cursor:pointer;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--cyan));width:0%;transition:width .5s linear;}
@@ -278,6 +272,9 @@ input[type=range].vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;h
   </div>
 </div>
 
+<!-- PLAYER BAR (fixed at bottom) -->
+<div id="playerBar" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:200;background:rgba(4,0,4,0.99);backdrop-filter:blur(20px);border-top:1px solid var(--red);box-shadow:0 -10px 40px rgba(0,0,0,0.95);">
+
 <!-- NOW PLAYING -->
 <div class="now-playing" id="nowPlaying">
   <div class="np-label">// NOW PLAYING</div>
@@ -293,12 +290,7 @@ input[type=range].vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;h
       </div>
     </div>
   </div>
-  <div class="np-waveform" id="npWave">
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-  </div>
+  <canvas id="npWave" style="width:100%;height:40px;display:block;"></canvas>
 </div>
 
 <!-- PLAYER CONTROLS -->
@@ -320,6 +312,7 @@ input[type=range].vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;h
     <span style="font-size:11px;color:var(--dim)">🔊</span>
   </div>
 </div>
+</div><!-- end playerBar -->
 
 <!-- SHARE MODAL -->
 <div class="share-modal" id="shareModal" onclick="closeShare()">
@@ -460,7 +453,7 @@ window.loadTrackById = async function(id) {
   document.getElementById('playBtn').textContent = '⏸';
   document.getElementById('nowPlaying').classList.add('show');
   document.getElementById('playerWrap').classList.add('show');
-  document.getElementById('npWave').classList.remove('paused');
+  startVisualizer();
   document.getElementById('npArtist').textContent = t.artist||'—';
   document.getElementById('npTitle').textContent  = t.title||'—';
   document.getElementById('npGenre').textContent  = t.genre||'';
@@ -481,8 +474,8 @@ window.loadTrackById = async function(id) {
 
 window.togglePlay = function() {
   if(currentIdx===-1){const f=playlist.findIndex(t=>t.audioUrl);if(f>=0)loadTrackById(playlist[f].id);return;}
-  if(audio.paused){audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';document.getElementById('npWave').classList.remove('paused');}
-  else{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';document.getElementById('npWave').classList.add('paused');}
+  if(audio.paused){audio.play();isPlaying=true;document.getElementById('playBtn').textContent='⏸';startVisualizer();}
+  else{audio.pause();isPlaying=false;document.getElementById('playBtn').textContent='▶';pauseVisualizer();}
 };
 window.nextTrack = function() {
   if(!playlist.length)return;
@@ -857,11 +850,86 @@ window.downloadAll=async()=>{for(const t of playlist.filter(x=>x.audioUrl)){awai
 window.clearPlaylist=async()=>{if(!confirm('Delete ALL tracks?'))return;for(const t of playlist)await deleteDoc(doc(db,'tracks',t.id));};
 
 // ── UTILS ──
-function showPlayer(){document.getElementById('nowPlaying').classList.add('show');document.getElementById('playerWrap').classList.add('show');}
+function showPlayer(){document.getElementById('playerBar').style.display='block';document.getElementById('nowPlaying').classList.add('show');document.getElementById('playerWrap').classList.add('show');}
 function setStatus(m,t){const e=document.getElementById('statusBar');e.textContent=m;e.className='status-bar '+(t||'');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2500);}
 function dbg(m){const b=document.getElementById('debugBox');if(!b)return;const d=document.createElement('div');d.textContent='['+new Date().toLocaleTimeString()+'] '+m;b.appendChild(d);b.scrollTop=b.scrollHeight;}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ── AUDIO VISUALIZER ──
+let audioCtx = null, analyser = null, source = null, animFrame = null, vizRunning = false;
+
+function initAudioContext() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    analyser.smoothingTimeConstant = 0.8;
+    source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  } catch(e) { dbg('AudioContext error: '+e.message); }
+}
+
+function startVisualizer() {
+  initAudioContext();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  vizRunning = true;
+  drawVisualizer();
+}
+
+function pauseVisualizer() {
+  vizRunning = false;
+  // Draw flat line when paused
+  const canvas = document.getElementById('npWave');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(255,0,85,0.2)';
+  const barW = Math.floor(canvas.width / 32);
+  for (let i = 0; i < 32; i++) {
+    ctx.fillRect(i * (barW + 1), canvas.height / 2 - 1, barW, 2);
+  }
+}
+
+function drawVisualizer() {
+  if (!vizRunning) return;
+  const canvas = document.getElementById('npWave');
+  if (!canvas) return;
+
+  // Set canvas size to match display
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio || canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio || 40;
+
+  const ctx = canvas.getContext('2d');
+  const bufferLen = analyser ? analyser.frequencyBinCount : 32;
+  const dataArr = new Uint8Array(bufferLen);
+  if (analyser) analyser.getByteFrequencyData(dataArr);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const bars = 32;
+  const barW = Math.floor((canvas.width - bars) / bars);
+  const step = Math.floor(bufferLen / bars);
+
+  for (let i = 0; i < bars; i++) {
+    let val = analyser ? dataArr[i * step] : 0;
+    const barH = analyser ? (val / 255) * canvas.height : 2;
+    const alpha = analyser ? 0.4 + (val / 255) * 0.6 : 0.15;
+
+    // Gradient: red at bottom, cyan at top for high energy bars
+    const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barH);
+    grad.addColorStop(0, `rgba(255,0,85,${alpha})`);
+    grad.addColorStop(0.5, `rgba(255,0,85,${alpha * 0.8})`);
+    grad.addColorStop(1, val > 180 ? `rgba(0,255,204,${alpha})` : `rgba(255,0,85,${alpha * 0.3})`);
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(i * (barW + 1), canvas.height - barH, barW, Math.max(barH, 2));
+  }
+
+  animFrame = requestAnimationFrame(drawVisualizer);
+}
 
 // ── DEEP LINK ──
 const urlTrack=new URLSearchParams(location.search).get('track');
